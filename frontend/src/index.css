@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* EXACT palette from your reference Tailwind config (hex → rgb triplets). */
+    --outline: 130 116 106; /* #82746a */
+    --primary-container: 148 168 243; /* #94a8f3 */
+    --on-secondary-fixed: 27 48 107; /* #1b306b */
+    --tertiary: 155 62 38; /* #9b3e26 */
+    --inverse-primary: 148 168 243; /* #94a8f3 */
+    --tertiary-fixed-dim: 246 130 101; /* #f68265 */
+    --on-background: 55 45 37; /* #372d25 */
+    --primary-dim: 55 76 143; /* #374c8f */
+    --on-primary-fixed: 0 12 54; /* #000c36 */
+    --on-surface: 55 45 37; /* #372d25 */
+    --secondary-container: 196 208 255; /* #c4d0ff */
+    --on-primary-fixed-variant: 25 48 115; /* #193073 */
+    --on-tertiary-fixed: 54 6 0; /* #360600 */
+    --on-error: 255 239 239; /* #ffefef */
+    --primary: 68 88 156; /* #44589c */
+    --surface: 255 244 239; /* #fff4ef */
+    --error: 180 19 64; /* #b41340 */
+    --inverse-surface: 21 13 6; /* #150d06 */
+    --primary-fixed-dim: 135 155 228; /* #879be4 */
+    --error-container: 247 75 109; /* #f74b6d */
+    --surface-tint: 68 88 156; /* #44589c */
+    --surface-dim: 231 208 192; /* #e7d0c0 */
+    --surface-bright: 255 244 239; /* #fff4ef */
+    --tertiary-dim: 140 50 28; /* #8c321c */
+    --surface-container-low: 255 237 226; /* #ffede2 */
+    --surface-container-highest: 239 217 201; /* #efd9c9 */
+    --on-tertiary-container: 97 19 1; /* #611301 */
+    --on-surface-variant: 102 89 80; /* #665950 */
+    --error-dim: 167 1 56; /* #a70138 */
+    --outline-variant: 186 170 159; /* #baaa9f */
+    --surface-container-high: 244 222 208; /* #f4ded0 */
+    --secondary: 69 89 150; /* #455996 */
+    --background: 255 244 239; /* #fff4ef */
+    --primary-fixed: 148 168 243; /* #94a8f3 */
+    --on-secondary-container: 48 68 128; /* #304480 */
+    --inverse-on-surface: 170 154 143; /* #aa9a8f */
+    --on-error-container: 81 0 23; /* #510017 */
+    --on-secondary-fixed-variant: 58 78 138; /* #3a4e8a */
+    --on-secondary: 241 242 255; /* #f1f2ff */
+    --on-primary: 242 242 255; /* #f2f2ff */
+    --on-tertiary: 255 239 236; /* #ffefec */
+    --secondary-dim: 57 77 137; /* #394d89 */
+    --surface-container-lowest: 255 255 255; /* #ffffff */
+    --surface-container: 249 228 214; /* #f9e4d6 */
+    --on-tertiary-fixed-variant: 109 28 7; /* #6d1c07 */
+    --on-primary-container: 13 38 106; /* #0d266a */
+    --secondary-fixed: 196 208 255; /* #c4d0ff */
+    --tertiary-container: 255 148 120; /* #ff9478 */
+    --tertiary-fixed: 255 148 120; /* #ff9478 */
+    --surface-variant: 239 217 201; /* #efd9c9 */
+    --secondary-fixed-dim: 177 194 255; /* #b1c2ff */
+  }
+
+  /* Dark palette is controlled mostly via explicit `dark:*` classes in your pages.
+     Tailwind dark mode is class-based (`html.dark`). */
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background font-body text-on-background antialiased;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    @apply bg-surface/70 backdrop-blur-xl;
+  }
+
+  .glass-panel {
+    @apply bg-surface/60 backdrop-blur-2xl;
+  }
+
+  .headline-font {
+    @apply font-headline;
+  }
+
+  .bg-gradient-primary {
+    @apply bg-gradient-to-r from-primary to-primary-container;
+  }
+
+  .btn-glow-hover {
+    @apply transition-transform duration-200 ease-out hover:scale-[1.02] active:scale-[0.99];
+  }
+
+  .card-shine {
+    @apply relative overflow-hidden;
+    isolation: isolate;
+  }
+
+  .card-shine::before {
+    content: "";
+    @apply pointer-events-none absolute -left-1/2 -top-1/2 h-[200%] w-[200%] opacity-0;
+    z-index: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.5), transparent 35%);
+    transition: opacity 300ms ease;
+  }
+
+  .card-shine:hover::before {
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
