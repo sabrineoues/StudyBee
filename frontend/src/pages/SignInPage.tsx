@@ -1,23 +1,60 @@
 import { motion } from "framer-motion";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { SiteFooter } from "../components/SiteFooter";
+import { userService } from "../services/userService";
 
 export function SignInPage() {
-  function onSubmit(e: FormEvent) {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
+
+    setSubmitStatus("loading");
+    setSubmitMessage(null);
+
+    try {
+      const res = await userService.signIn({ email: email.trim(), password });
+      const isAdmin = Boolean(res.user?.is_staff || res.user?.is_superuser);
+      navigate(isAdmin ? "/admin" : "/dashboard");
+    } catch (err) {
+      const maybeAny = err as {
+        response?: { data?: unknown; status?: number };
+        message?: unknown;
+      };
+
+      const data = maybeAny?.response?.data as unknown;
+      const msgFromApi =
+        typeof data === "string"
+          ? data
+          : data && typeof data === "object" && !Array.isArray(data) && typeof (data as { detail?: unknown }).detail === "string"
+            ? (data as { detail: string }).detail
+            : null;
+
+      setSubmitStatus("error");
+      setSubmitMessage(
+        msgFromApi ??
+          (typeof maybeAny?.message === "string" ? maybeAny.message : "Sign in failed. Check your credentials.")
+      );
+    }
   }
 
   return (
-    <div className="relative min-h-screen bg-surface font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+    <div className="relative min-h-screen bg-background font-body text-on-background selection:bg-primary-container selection:text-on-primary-container">
       <AmbientOrbs className="opacity-80" />
       <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 pb-12 pt-24">
 
         <div className="grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-12">
           <div className="relative hidden pr-12 lg:col-span-7 lg:block">
             <span className="mb-6 inline-block rounded-full bg-secondary-container px-4 py-1.5 text-[0.75rem] font-bold uppercase tracking-widest text-on-secondary-container">
-              YOUR AI STUDY PARTNER
+              YOUR STUDY PARTNER
             </span>
             <h1 className="font-headline mb-8 text-[4rem] font-extrabold leading-[1.1] tracking-tighter text-on-surface">
               Focus deep.
@@ -76,14 +113,21 @@ export function SignInPage() {
 
               <div className="relative mb-8 text-center">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-outline-variant/20" />
+                 
                 </div>
-                <span className="relative bg-surface/60 px-4 text-xs font-bold uppercase text-outline backdrop-blur-md">
-                  or use email
-                </span>
+                
               </div>
 
               <form className="space-y-6" onSubmit={onSubmit}>
+                {submitMessage ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-md bg-error-container/20 px-4 py-3 text-sm font-semibold text-on-error-container whitespace-pre-line"
+                  >
+                    {submitMessage}
+                  </div>
+                ) : null}
                 <div className="space-y-2">
                   <label
                     className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant"
@@ -94,8 +138,11 @@ export function SignInPage() {
                   <input
                     id="email"
                     type="email"
-                    placeholder="alex@hive.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
                     className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -113,18 +160,33 @@ export function SignInPage() {
                       Forgot?
                     </a>
                   </div>
-                  <input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 pr-20 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      className="absolute inset-y-0 right-2 my-2 rounded-md px-3 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="submit"
+                  disabled={submitStatus === "loading"}
                   className="mt-4 w-full rounded-full bg-gradient-primary py-4 font-bold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95"
                 >
-                  Sign In to Hive
+                  {submitStatus === "loading" ? "Signing in..." : "Sign In to Hive"}
                 </button>
               </form>
 
@@ -145,8 +207,8 @@ export function SignInPage() {
       </main>
 
       <SiteFooter
-        brand="StudyCompanion AI"
-        copyright="© 2024 StudyCompanion AI. Built for the future of learning."
+        brand="StudyBee"
+        copyright="© 2026 StudyBee. Built for the future of learning."
         links={["Privacy Policy", "Terms of Service", "Cookie Settings"]}
         layout="brand-links-copyright"
         linksContainerClassName="flex gap-8"

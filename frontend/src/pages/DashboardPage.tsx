@@ -1,5 +1,4 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { MobileBottomNav } from "../components/MobileBottomNav";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { springSnappy } from "../motion/presets";
@@ -366,7 +365,6 @@ export function DashboardPage() {
         </div>
       </main>
 
-      <MobileBottomNav />
     </StudyBeeShell>
   );
 }

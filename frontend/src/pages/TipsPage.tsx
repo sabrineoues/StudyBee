@@ -271,12 +271,12 @@ export function TipsPage() {
             <a className="transition-colors hover:text-primary" href="#">
               Terms
             </a>
-            <a className="transition-colors hover:text-primary" href="#">
+            <a className="transition-colors hover:text-primary" href="mailto:studybee@mindworkers.tn">
               Contact
             </a>
           </div>
           <div className="headline-font text-[11px] font-bold uppercase tracking-[0.2em] text-outline">
-            © 2024 StudyBee
+            © 2026 StudyBee
           </div>
         </div>
       </footer>

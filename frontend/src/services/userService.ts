@@ -1,6 +1,185 @@
+import axios from "axios";
+
 import API_URL from "./api";
 
-export const getUsers = async () => {
-  const res = await fetch(API_URL + "users/");
-  return res.json();
+const ACCESS_TOKEN_KEY = "studybee_access_token";
+const REFRESH_TOKEN_KEY = "studybee_refresh_token";
+const USER_KEY = "studybee_user";
+const AUTH_CHANGED_EVENT = "studybee-auth-changed";
+
+function notifyAuthChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
+
+function setAxiosAuthToken(token: string | null) {
+  if (token) {
+    axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete axios.defaults.headers.common.Authorization;
+  }
+}
+
+// Always attach the latest token (covers refresh/HMR/stale defaults)
+if (!(axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__studybeeAuthInterceptor) {
+  (axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__studybeeAuthInterceptor = true;
+  axios.interceptors.request.use((config) => {
+    if (typeof window === "undefined") return config;
+    const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) {
+      config.headers = config.headers ?? {};
+      (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+}
+
+// Restore token on app load (best-effort)
+if (typeof window !== "undefined") {
+  const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (token) setAxiosAuthToken(token);
+}
+
+export interface SignUpData {
+  username: string;
+  email: string;
+  password: string;
+  password_confirm: string;
+
+  study_level?: "secondary" | "university";
+
+  first_name: string;
+  last_name: string;
+  date_of_birth: string; // YYYY-MM-DD
+  class_level: string;
+  speciality: string;
+  parent_email: string;
+  parent_phone: string;
+}
+
+export interface SignInData {
+  email: string;
+  password: string;
+}
+
+export interface SignInResponse {
+  access: string;
+  refresh: string;
+  user?: {
+    id: number;
+    email: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    is_staff?: boolean;
+    is_superuser?: boolean;
+  };
+}
+
+export const userService = {
+  subscribeAuth: (listener: () => void) => {
+    if (typeof window === "undefined") return () => {};
+
+    const onAuthChanged = () => listener();
+
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    window.addEventListener("storage", onAuthChanged);
+
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+      window.removeEventListener("storage", onAuthChanged);
+    };
+  },
+
+  getAccessToken: () => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  },
+
+  isSignedIn: () => {
+    if (typeof window === "undefined") return false;
+    return Boolean(window.localStorage.getItem(ACCESS_TOKEN_KEY));
+  },
+
+  getUser: () => {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as SignInResponse["user"];
+    } catch {
+      return null;
+    }
+  },
+
+  isAdmin: () => {
+    const user = userService.getUser();
+    return Boolean(user?.is_staff || user?.is_superuser);
+  },
+
+  hydrateUser: async (opts?: { force?: boolean }) => {
+    if (typeof window === "undefined") return null;
+    if (!userService.isSignedIn()) return null;
+
+    const existing = userService.getUser();
+    if (!opts?.force && existing && (typeof existing.is_staff === "boolean" || typeof existing.is_superuser === "boolean")) {
+      return existing;
+    }
+
+    const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+    let response;
+    try {
+      response = await axios.get(`${baseUrl}me/`);
+    } catch (err) {
+      const maybeAny = err as { response?: { status?: number } };
+      const status = maybeAny?.response?.status;
+      if (status === 401) {
+        userService.signOut();
+      }
+      throw err;
+    }
+
+    const me = response.data as SignInResponse["user"];
+
+    window.localStorage.setItem(USER_KEY, JSON.stringify(me));
+    notifyAuthChanged();
+
+    return me;
+  },
+
+  signUp: async (data: SignUpData) => {
+    const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+    const response = await axios.post(`${baseUrl}sign-up/`, data);
+    return response.data;
+  },
+
+  signIn: async (data: SignInData): Promise<SignInResponse> => {
+    const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+    const response = await axios.post(`${baseUrl}sign-in/`, data);
+    const payload = response.data as SignInResponse;
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACCESS_TOKEN_KEY, payload.access);
+      window.localStorage.setItem(REFRESH_TOKEN_KEY, payload.refresh);
+      if (payload.user) {
+        window.localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      } else {
+        window.localStorage.removeItem(USER_KEY);
+      }
+    }
+    setAxiosAuthToken(payload.access);
+    notifyAuthChanged();
+
+    return payload;
+  },
+
+  signOut: () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+      window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+      window.localStorage.removeItem(USER_KEY);
+    }
+    setAxiosAuthToken(null);
+    notifyAuthChanged();
+  },
 };
