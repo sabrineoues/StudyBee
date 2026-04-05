@@ -1,5 +1,4 @@
 import { StudyBeeShell } from "../components/StudyBeeShell";
-import { MobileBottomNav } from "../components/MobileBottomNav";
 
 const BEE_IMG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAA9WzlnKw2cDsXYu08D_iqZ9_DW4uWWmaJSg0i2gxaFApq9m3cn_tXn2iRhGUkQlJoad4Vrt2S0S5FRxLJrnddCYZSqCHRHRlzOiBkFSQyvymkDML_RkK3CghyptPis_zpjvgKKe3fxIKCuMJcf86QktCiIbGpwju8b-ERrG2Y6CaS1pwyP-KY76b7wc6ZtOs5u_cKBI6TkAHpH6FApXkxutKcq4vujXXXiuzhkv4yrAi5HMsAd3L57FH6ynccAD-CwxOzbItlkNs";
@@ -305,7 +304,6 @@ export function StudyPage() {
         </div>
       </main>
 
-      <MobileBottomNav />
     </StudyBeeShell>
   );
 }

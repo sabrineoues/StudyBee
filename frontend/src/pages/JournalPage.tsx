@@ -28,7 +28,7 @@ export function JournalPage() {
             <div className="relative z-10">
               <div className="mb-8 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-primary">
-                  How&apos;s your heart?
+                 How do you feel?
                 </h2>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                   Emotional Check-in

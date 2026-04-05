@@ -2,7 +2,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
-import { MobileBottomNav } from "../components/MobileBottomNav";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import {
@@ -55,9 +54,9 @@ const moodFeedback = {
 } as const;
 
 const stats = [
-  { num: "50k+", lab: "Students supported" },
-  { num: "12M", lab: "Study hours guided" },
-  { num: "4.9/5", lab: "User rating" },
+  { num: "5k+", lab: "Students supported" },
+  { num: "1M", lab: "Study hours guided" },
+  { num: "4.7/5", lab: "User rating" },
 ] as const;
 
 const pillars = [
@@ -83,7 +82,7 @@ const footerLinks: {
   app: [
     { label: "Features", href: "#features" },
     { label: "About", href: "#about" },
-    { label: "Contact", href: "#contact" },
+    { label: "Contact", href: "mailto:studybee@mindworkers.tn" },
   ],
 };
 
@@ -111,7 +110,7 @@ export function HomePage() {
                   variants={staggerItem}
                   className="font-label inline-block rounded-full bg-secondary-container px-4 py-1.5 text-[0.75rem] font-bold uppercase tracking-widest text-on-secondary-container shadow-sm shadow-secondary/20"
                 >
-                  Espace d’étude chaleureux
+                  A cozy study space
                 </motion.span>
 
                 <motion.h1
@@ -431,8 +430,6 @@ export function HomePage() {
           </section>
         </main>
 
-        <MobileBottomNav />
-
         <footer id="contact" className="mt-12 bg-surface-container-low px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto grid max-w-7xl grid-cols-2 gap-12 md:grid-cols-3">
             <div className="col-span-2">
@@ -440,8 +437,7 @@ export function HomePage() {
                 StudyBee
               </h3>
               <p className="max-w-sm text-on-surface-variant">
-                The digital companion for the modern student. Designed with empathy, powered by intelligence.
-              </p>
+                      Turning Study Time into Prime Time              </p>
             </div>
 
             <div>
@@ -460,9 +456,9 @@ export function HomePage() {
             </div>
           </div>
 
-          <div className="mx-auto mt-12 flex max-w-7xl flex-col items-center gap-6 border-t border-outline-variant/15 pt-12 md:flex-row md:justify-between">
+          <div className="mx-auto mt-8 flex max-w-7xl flex-col items-center gap-6 border-t border-outline-variant/15 pt-12 md:flex-row md:justify-between">
             <p className="text-[0.75rem] opacity-60 text-on-surface-variant">
-              © 2024 StudyBee Systems. All rights reserved.
+              © 2026 StudyBee Systems. All rights reserved.
             </p>
           </div>
         </footer>
