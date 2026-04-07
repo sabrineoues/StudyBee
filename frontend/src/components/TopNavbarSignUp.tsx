@@ -28,7 +28,21 @@ export function TopNavbarSignUp() {
         </NavLink>
       </div>
 
-      <div className="flex items-center gap-4" />
+      <div className="flex items-center gap-4">
+        <NavLink
+          to="/sign-in"
+          className="rounded-full bg-surface-container-highest/70 px-5 py-2.5 text-sm font-semibold text-on-surface shadow-sm ring-1 ring-outline-variant/10 transition-transform duration-200 hover:scale-105 hover:bg-surface-container-highest active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          Sign in
+        </NavLink>
+
+        <NavLink
+          to="/sign-up"
+          className="rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm ring-1 ring-outline-variant/10 transition-transform duration-200 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          Sign up
+        </NavLink>
+      </div>
     </nav>
   );
 }

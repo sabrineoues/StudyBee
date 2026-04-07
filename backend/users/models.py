@@ -16,5 +16,7 @@ class StudentProfile(models.Model):
     parent_email = models.EmailField(default="parent@example.com")       # Email parent obligatoire
     parent_phone = models.CharField(max_length=20, default="00000000")   # Numéro parent obligatoire
 
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"

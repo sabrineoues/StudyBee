@@ -11,7 +11,7 @@ from .models import StudentProfile
 
 class StudentSignUpSerializer(serializers.ModelSerializer):
     NAME_REGEX = re.compile(r"^[A-Za-zÀ-ÿ\s'-]+$")
-    PHONE_REGEX = re.compile(r"^\+216\d{8}$")
+    PHONE_REGEX = re.compile(r"^\+\d{8,15}$")
 
     password = serializers.CharField(write_only=True)
     password_confirm = serializers.CharField(write_only=True)
@@ -64,7 +64,7 @@ class StudentSignUpSerializer(serializers.ModelSerializer):
 
         phone = (data.get("parent_phone") or "").strip()
         if not self.PHONE_REGEX.match(phone):
-            raise serializers.ValidationError({"parent_phone": "Phone must match +216XXXXXXXX"})
+            raise serializers.ValidationError({"parent_phone": "Phone must be in international format (e.g. +216XXXXXXXX)"})
 
         dob = data.get("date_of_birth")
         if not isinstance(dob, date):
@@ -210,7 +210,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
-    PHONE_REGEX = re.compile(r"^\+216\d{8}$")
+    PHONE_REGEX = re.compile(r"^\+\d{8,15}$")
 
     password = serializers.CharField(write_only=True, required=True, min_length=6)
     date_of_birth = serializers.DateField(write_only=True)
@@ -247,7 +247,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
     def validate_parent_phone(self, value):
         phone = (value or "").strip()
         if not self.PHONE_REGEX.match(phone):
-            raise serializers.ValidationError("Phone must match +216XXXXXXXX")
+            raise serializers.ValidationError("Phone must be in international format (e.g. +216XXXXXXXX)")
         return phone
 
     def create(self, validated_data):
@@ -277,7 +277,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
-    PHONE_REGEX = re.compile(r"^\+216\d{8}$")
+    PHONE_REGEX = re.compile(r"^\+\d{8,15}$")
 
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=6)
     date_of_birth = serializers.DateField(write_only=True, required=False)
@@ -325,7 +325,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
             return value
         phone = (value or "").strip()
         if not self.PHONE_REGEX.match(phone):
-            raise serializers.ValidationError("Phone must match +216XXXXXXXX")
+            raise serializers.ValidationError("Phone must be in international format (e.g. +216XXXXXXXX)")
         return phone
 
     def update(self, instance, validated_data):
@@ -386,7 +386,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
 
 
 class StudentProfileMeSerializer(serializers.Serializer):
-    PHONE_REGEX = re.compile(r"^\+216\d{8}$")
+    PHONE_REGEX = re.compile(r"^\+\d{8,15}$")
 
     email = serializers.EmailField(required=False)
     username = serializers.CharField(required=False)
@@ -402,11 +402,22 @@ class StudentProfileMeSerializer(serializers.Serializer):
     def to_representation(self, instance):
         user: User = instance["user"]
         profile: StudentProfile | None = instance.get("profile")
+
+        avatar_url = None
+        if profile and getattr(profile, "avatar", None):
+            try:
+                avatar_url = profile.avatar.url
+                request = self.context.get("request")
+                if request is not None:
+                    avatar_url = request.build_absolute_uri(avatar_url)
+            except Exception:
+                avatar_url = None
         return {
             "email": user.email,
             "username": user.username,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "avatar_url": avatar_url,
             "date_of_birth": profile.date_of_birth if profile else None,
             "class_level": profile.class_level if profile else "",
             "speciality": profile.speciality if profile else "",
@@ -425,5 +436,5 @@ class StudentProfileMeSerializer(serializers.Serializer):
     def validate_parent_phone(self, value):
         phone = (value or "").strip()
         if phone and not self.PHONE_REGEX.match(phone):
-            raise serializers.ValidationError("Phone must match +216XXXXXXXX")
+            raise serializers.ValidationError("Phone must be in international format (e.g. +216XXXXXXXX)")
         return phone

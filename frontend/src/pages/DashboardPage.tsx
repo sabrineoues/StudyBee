@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../components/Reveal";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { springSnappy } from "../motion/presets";
 
@@ -364,6 +365,8 @@ export function DashboardPage() {
           </motion.div>
         </div>
       </main>
+
+      <MarketingFooter />
 
     </StudyBeeShell>
   );

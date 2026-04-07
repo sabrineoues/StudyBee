@@ -5,8 +5,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
+        body: ["Nunito", "sans-serif"],
+        heading: ["Poppins", "sans-serif"],
         headline: ["Plus Jakarta Sans", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
-        body: ["Be Vietnam Pro", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
         label: ["Be Vietnam Pro", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
       },
       colors: {

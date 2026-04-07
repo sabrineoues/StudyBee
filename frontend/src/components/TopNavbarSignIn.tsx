@@ -1,4 +1,6 @@
+import { useEffect, useSyncExternalStore } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { profileService } from "../services/profileService";
 import { userService } from "../services/userService";
 
 const linkBase =
@@ -27,8 +29,20 @@ function NavItem({ to, label }: { to: string; label: string }) {
 export function TopNavbarSignIn() {
   const navigate = useNavigate();
 
+  const avatarUrl = useSyncExternalStore(
+    profileService.subscribeProfile,
+    profileService.getCachedAvatarUrl,
+    () => null
+  );
+
+  useEffect(() => {
+    if (avatarUrl) return;
+    void profileService.getMe();
+  }, [avatarUrl]);
+
   function onSignOut() {
     userService.signOut();
+    profileService.clearCachedAvatarUrl();
     navigate("/", { replace: true });
   }
 
@@ -73,9 +87,17 @@ export function TopNavbarSignIn() {
             "active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
           ].join(" ")}
         >
-          <span className="material-symbols-outlined text-[32px] leading-none">
-            account_circle
-          </span>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Profile"
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : (
+            <span className="material-symbols-outlined text-[32px] leading-none">
+              account_circle
+            </span>
+          )}
         </button>
       </div>
     </nav>

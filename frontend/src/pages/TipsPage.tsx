@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { AmbientOrbs } from "../components/AmbientOrbs";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { Reveal } from "../components/Reveal";
 import { springSnappy } from "../motion/presets";
 const TECH_IMG_1 =
@@ -9,7 +10,7 @@ const TECH_IMG_3 =
 
 export function TipsPage() {
   return (
-    <div className="relative min-h-screen bg-background antialiased text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+    <div className="relative flex min-h-screen flex-col bg-background antialiased text-on-surface selection:bg-primary-container selection:text-on-primary-container">
       <AmbientOrbs className="opacity-[0.45]" />
       <main className="relative mx-auto max-w-6xl space-y-20 px-8 pb-24 pt-28">
         <motion.section
@@ -254,32 +255,7 @@ export function TipsPage() {
         </Reveal>
       </main>
 
-      <footer className="border-t border-outline-variant/20 bg-surface px-8 py-16">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-10 md:flex-row">
-          <div className="flex flex-col items-center gap-4 md:items-start">
-            <span className="headline-font text-2xl font-extrabold tracking-tight text-primary">
-              StudyBee
-            </span>
-            <p className="text-[13px] text-on-surface-variant/70">
-              Elevating cognitive potential through AI-driven insights.
-            </p>
-          </div>
-          <div className="headline-font flex gap-12 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-            <a className="transition-colors hover:text-primary" href="#">
-              Privacy
-            </a>
-            <a className="transition-colors hover:text-primary" href="#">
-              Terms
-            </a>
-            <a className="transition-colors hover:text-primary" href="mailto:studybee@mindworkers.tn">
-              Contact
-            </a>
-          </div>
-          <div className="headline-font text-[11px] font-bold uppercase tracking-[0.2em] text-outline">
-            © 2026 StudyBee
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

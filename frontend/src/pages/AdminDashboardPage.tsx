@@ -30,17 +30,21 @@ export function AdminDashboardPage() {
 
   return (
     <StudyBeeShell>
-      <main className="mx-auto max-w-7xl px-6 py-12 md:px-12">
-        <header className="mb-8">
+      <main className="relative mx-auto max-w-7xl px-6 pb-24 pt-24 md:px-12">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-primary-container/18 blur-3xl" />
+          <div className="absolute right-[-7rem] top-24 h-80 w-80 rounded-full bg-secondary-container/14 blur-3xl" />
+          <div className="absolute bottom-[-6rem] left-10 h-80 w-80 rounded-full bg-tertiary-container/14 blur-3xl" />
+        </div>
+
+        <header className="mb-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant ring-1 ring-outline-variant/10">
-            Admin
+            Dashboard
           </div>
           <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
-            Dashboard
+            Admin
           </h1>
-          <p className="mt-2 max-w-2xl text-on-surface-variant">
-            Overview of your platform.
-          </p>
+          <p className="mt-2 max-w-2xl text-on-surface-variant">Overview of your platform.</p>
         </header>
 
         {error ? (
@@ -50,31 +54,41 @@ export function AdminDashboardPage() {
         ) : null}
 
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-2xl bg-surface-container-low p-6 ring-1 ring-outline-variant/15">
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Total Users
-            </p>
-            <div className="mt-3 flex items-end justify-between gap-4">
-              <p className="text-5xl font-black tracking-tight text-primary">
-                {stats ? stats.users_total : "…"}
+          <div className="rounded-3xl bg-surface-container-low/90 p-6 shadow-sm ring-1 ring-outline-variant/12 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                Total users
               </p>
               <div className="rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold text-on-surface-variant ring-1 ring-outline-variant/10">
                 All accounts
               </div>
             </div>
+            <div className="mt-4 flex items-end justify-between gap-6">
+              <p className="text-5xl font-black tracking-tight text-primary">
+                {stats ? stats.users_total : "…"}
+              </p>
+              <span className="material-symbols-outlined text-[32px] text-primary/60" aria-hidden>
+                groups
+              </span>
+            </div>
           </div>
 
-          <div className="rounded-2xl bg-surface-container-low p-6 ring-1 ring-outline-variant/15">
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              Staff Users
-            </p>
-            <div className="mt-3 flex items-end justify-between gap-4">
-              <p className="text-5xl font-black tracking-tight text-primary">
-                {stats ? stats.users_staff : "…"}
+          <div className="rounded-3xl bg-surface-container-low/90 p-6 shadow-sm ring-1 ring-outline-variant/12 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                Staff users
               </p>
               <div className="rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold text-on-surface-variant ring-1 ring-outline-variant/10">
                 Admin access
               </div>
+            </div>
+            <div className="mt-4 flex items-end justify-between gap-6">
+              <p className="text-5xl font-black tracking-tight text-primary">
+                {stats ? stats.users_staff : "…"}
+              </p>
+              <span className="material-symbols-outlined text-[32px] text-primary/60" aria-hidden>
+                admin_panel_settings
+              </span>
             </div>
           </div>
         </section>

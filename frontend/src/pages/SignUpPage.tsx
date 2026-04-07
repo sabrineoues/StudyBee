@@ -1,12 +1,14 @@
 import { motion } from "framer-motion";
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { userService } from "../services/userService";
 
 const NAME_REGEX = /^[A-Za-zÀ-ÿ\s'-]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PARENT_PHONE_REGEX = /^\+216\d{8}$/;
+// E.164-like: + then 8-15 digits total.
+const PARENT_PHONE_REGEX = /^\+\d{8,15}$/;
 
 const SECONDARY_CLASS_LEVELS = ["1st year", "2nd year", "3rd year", "4th year"] as const;
 const UNIVERSITY_CLASS_LEVELS = [
@@ -17,12 +19,6 @@ const UNIVERSITY_CLASS_LEVELS = [
   "5th year university",
   "1st master",
   "2nd master",
-] as const;
-
-const footerLinks = [
-  { label: "Features", href: "/#features" },
-  { label: "About", href: "/#about" },
-  { label: "Contact", href: "mailto:studybee@mindworkers.tn" },
 ] as const;
 
 function isValidDateIso(dateIso: string): boolean {
@@ -43,6 +39,7 @@ function isValidDateIso(dateIso: string): boolean {
 }
 
 export function SignUpPage() {
+  const navigate = useNavigate();
   const [showPw, setShowPw] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -62,7 +59,10 @@ export function SignUpPage() {
   const [classLevel, setClassLevel] = useState("");
   const [speciality, setSpeciality] = useState("");
   const [parentEmail, setParentEmail] = useState("");
-  const [parentPhone, setParentPhone] = useState("");
+  const [parentPhoneCountry, setParentPhoneCountry] = useState("+216");
+  const [parentPhoneNumber, setParentPhoneNumber] = useState("");
+
+  const parentPhoneE164 = `${parentPhoneCountry}${parentPhoneNumber.replace(/\D/g, "")}`;
 
   const classLevelOptions =
     studyLevel === "secondary"
@@ -82,7 +82,7 @@ export function SignUpPage() {
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
     const trimmedEmail = email.trim();
-    const trimmedParentPhone = parentPhone.trim();
+    const trimmedParentPhone = parentPhoneE164.trim();
     const trimmedSpeciality = speciality.trim();
 
     const nextErrors: typeof fieldErrors = {};
@@ -107,7 +107,7 @@ export function SignUpPage() {
       nextErrors.classLevel = "Choose a level from the list.";
     }
     if (!trimmedParentPhone || !PARENT_PHONE_REGEX.test(trimmedParentPhone)) {
-      nextErrors.parentPhone = "Phone must start with +216 and contain 8 digits.";
+      nextErrors.parentPhone = "Phone must be in international format (e.g. +216XXXXXXXX).";
     }
     if (!trimmedSpeciality) {
       nextErrors.speciality = "Specialty is required.";
@@ -149,6 +149,8 @@ export function SignUpPage() {
       setSubmitMessage(
         typeof result?.message === "string" ? result.message : "User created successfully."
       );
+
+      navigate(`/sign-in?signup=1&email=${encodeURIComponent(trimmedEmail)}`, { replace: true });
     } catch (err) {
       console.error("Sign Up failed:", err);
       const maybeAny = err as {
@@ -224,21 +226,21 @@ export function SignUpPage() {
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-body text-on-background">
       <AmbientOrbs className="opacity-75" />
-      <main className="relative flex flex-grow items-center justify-center px-6 pb-12 pt-24">
-        <div className="grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
+      <main className="relative flex flex-grow items-start justify-center px-6 pb-12 pt-24 lg:pt-20">
+        <div className="grid w-full max-w-6xl grid-cols-1 items-start gap-12 lg:grid-cols-2">
           {/* Illustration / text */}
           <div className="hidden space-y-8 pr-12 lg:block">
             <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container/20 px-4 py-2 text-xs font-bold uppercase tracking-widest text-tertiary">
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
                 auto_awesome
               </span>
-              Join the Future
+              Join the Hive , be part of our buzzing community!
             </div>
             <h1 className="font-headline text-6xl font-extrabold leading-[1.1] tracking-tight text-on-background xl:text-7xl">
               Design your <span className="text-primary">academic</span> flow.
             </h1>
             <p className="max-w-md text-xl leading-relaxed text-on-surface-variant">
-              The only study platform that adapts to your psychological state and learning style.
+              A study platform that adapts to your mindset and learning style.
             </p>
           </div>
 
@@ -422,14 +424,29 @@ export function SignUpPage() {
                 {/* Parent Phone */}
                 <div className="space-y-2">
                   <label className="font-label block text-xs uppercase tracking-widest text-outline">Parent Phone</label>
-                  <input
-                    type="text"
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value)}
-                    placeholder="+21600000000"
-                    className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
-                    required
-                  />
+                  <div className="flex overflow-hidden rounded-md bg-surface-container-highest ring-0 focus-within:ring-2 focus-within:ring-primary/40">
+                    <select
+                      value={parentPhoneCountry}
+                      onChange={(e) => setParentPhoneCountry(e.target.value)}
+                      aria-label="Country code"
+                      className="w-[9.5rem] border-none bg-surface-container-highest py-3 pl-4 pr-2 text-on-background focus:ring-0"
+                    >
+                      <option value="+216">TN +216</option>
+                      <option value="+213">DZ +213</option>
+                      <option value="+212">MA +212</option>
+                      <option value="+33">FR +33</option>
+                      <option value="+1">US +1</option>
+                    </select>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={parentPhoneNumber}
+                      onChange={(e) => setParentPhoneNumber(e.target.value)}
+                      placeholder="00000000"
+                      className="w-full border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-0"
+                      required
+                    />
+                  </div>
                   {fieldErrors.parentPhone ? (
                     <p className="text-sm font-semibold text-on-error-container">{fieldErrors.parentPhone}</p>
                   ) : null}
@@ -494,35 +511,7 @@ export function SignUpPage() {
         </div>
       </main>
 
-      <footer className="mt-8 bg-surface-container-low px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-12 md:grid-cols-3">
-          <div className="col-span-2">
-            <h3 className="mb-6 text-2xl font-black tracking-tighter text-primary">StudyBee</h3>
-            <p className="max-w-sm text-on-surface-variant">
-              Turning Study Time into Prime Time
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-label mb-6 text-[0.75rem] font-bold uppercase tracking-widest">App</h4>
-            <ul className="space-y-4 text-sm text-on-surface-variant">
-              {footerLinks.map((item) => (
-                <li key={item.label}>
-                  <a className="transition-colors hover:text-primary" href={item.href}>
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-8 flex max-w-7xl flex-col items-center gap-6 border-t border-outline-variant/15 pt-10 md:flex-row md:justify-between">
-          <p className="text-[0.75rem] opacity-60 text-on-surface-variant">
-            © 2026 StudyBee Systems. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

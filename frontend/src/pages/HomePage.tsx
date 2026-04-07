@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import {
@@ -73,18 +74,6 @@ const pillars = [
     text: "Track progress and build momentum one session at a time.",
   },
 ] as const;
-
-type FooterHrefLink = { label: string; href: string };
-
-const footerLinks: {
-  app: FooterHrefLink[];
-} = {
-  app: [
-    { label: "Features", href: "#features" },
-    { label: "About", href: "#about" },
-    { label: "Contact", href: "mailto:studybee@mindworkers.tn" },
-  ],
-};
 
 export function HomePage() {
   const shouldReduceMotion = useReducedMotion();
@@ -430,38 +419,7 @@ export function HomePage() {
           </section>
         </main>
 
-        <footer id="contact" className="mt-12 bg-surface-container-low px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-12 md:grid-cols-3">
-            <div className="col-span-2">
-              <h3 className="mb-6 text-2xl font-black tracking-tighter text-primary">
-                StudyBee
-              </h3>
-              <p className="max-w-sm text-on-surface-variant">
-                      Turning Study Time into Prime Time              </p>
-            </div>
-
-            <div>
-              <h4 className="font-label mb-6 text-[0.75rem] font-bold uppercase tracking-widest">
-                App
-              </h4>
-              <ul className="space-y-4 text-sm text-on-surface-variant">
-                {footerLinks.app.map((item) => (
-                  <li key={item.label}>
-                    <a className="transition-colors hover:text-primary" href={item.href}>
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="mx-auto mt-8 flex max-w-7xl flex-col items-center gap-6 border-t border-outline-variant/15 pt-12 md:flex-row md:justify-between">
-            <p className="text-[0.75rem] opacity-60 text-on-surface-variant">
-              © 2026 StudyBee Systems. All rights reserved.
-            </p>
-          </div>
-        </footer>
+        <MarketingFooter />
       </div>
     </StudyBeeShell>
   );

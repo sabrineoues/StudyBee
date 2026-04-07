@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { MarketingFooter } from "../components/MarketingFooter";
 
 export function JournalPage() {
   return (
-    <div className="min-h-screen bg-surface pb-32 text-on-surface">
+    <div className="flex min-h-screen flex-col bg-surface pb-32 text-on-surface md:pb-0">
       <main className="mx-auto max-w-5xl px-6 pt-24">
         <motion.header
           className="mb-12 space-y-4"
@@ -263,6 +264,8 @@ export function JournalPage() {
           </section>
         </div>
       </main>
+
+      <MarketingFooter />
 
       <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around rounded-t-xl bg-background/60 px-4 pb-8 pt-4 backdrop-blur-2xl md:hidden">
         <Link to="/" className="flex flex-col items-center justify-center px-4 py-2 text-on-surface-variant opacity-80 transition-opacity hover:opacity-100 dark:text-inverse-on-surface">

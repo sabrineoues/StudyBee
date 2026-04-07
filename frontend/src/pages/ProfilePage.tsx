@@ -1,17 +1,47 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { MarketingFooter } from "../components/MarketingFooter";
+import { StudyBeeShell } from "../components/StudyBeeShell";
 import { profileService } from "../services/profileService";
 import { userService } from "../services/userService";
 
-function fieldClass() {
-  return "w-full rounded-md border-none bg-surface-container-highest px-5 py-4 font-body text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40";
+type FieldErrorMap = Partial<
+  Record<
+    | "email"
+    | "username"
+    | "first_name"
+    | "last_name"
+    | "date_of_birth"
+    | "class_level"
+    | "speciality"
+    | "parent_email"
+    | "parent_phone",
+    string
+  >
+>;
+
+function fieldClass(hasError?: boolean) {
+  return [
+    "w-full rounded-3xl border bg-surface-container-highest/70 px-5 py-4 font-body text-on-surface shadow-sm outline-none transition-all placeholder:text-outline/70",
+    "focus-visible:ring-4",
+    hasError
+      ? "border-error/60 focus-visible:border-error focus-visible:ring-error/15"
+      : "border-outline-variant/20 focus-visible:border-primary/40 focus-visible:ring-primary/12",
+  ].join(" ");
+}
+
+function softCardClass() {
+  return "rounded-3xl bg-surface-container-low/90 ring-1 ring-outline-variant/12 shadow-sm backdrop-blur-md";
+}
+
+function chipClass() {
+  return "inline-flex items-center gap-2 rounded-full bg-surface-container-highest/55 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-on-surface-variant ring-1 ring-outline-variant/10";
 }
 
 function formatDrfError(data: unknown): string {
   if (!data) return "Failed to save. Please check the fields.";
   if (typeof data === "string") return data;
-
   if (typeof data !== "object") return "Failed to save. Please check the fields.";
 
   const obj = data as Record<string, unknown>;
@@ -27,22 +57,117 @@ function formatDrfError(data: unknown): string {
     if (Array.isArray(value)) {
       const msgs = value.filter((v) => typeof v === "string").join(" ");
       if (msgs) lines.push(`${key}: ${msgs}`);
-      continue;
     }
   }
 
   return lines.length ? lines.join("\n") : "Failed to save. Please check the fields.";
 }
 
+function extractFieldErrors(data: unknown): FieldErrorMap {
+  if (!data || typeof data !== "object") return {};
+  const obj = data as Record<string, unknown>;
+  const out: FieldErrorMap = {};
+
+  const keys: (keyof FieldErrorMap)[] = [
+    "email",
+    "username",
+    "first_name",
+    "last_name",
+    "date_of_birth",
+    "class_level",
+    "speciality",
+    "parent_email",
+    "parent_phone",
+  ];
+
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string") out[key] = value;
+    else if (Array.isArray(value)) {
+      const msg = value.filter((v) => typeof v === "string").join(" ");
+      if (msg) out[key] = msg;
+    }
+  }
+
+  return out;
+}
+
+function capitalizeFirst(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toLocaleUpperCase() + trimmed.slice(1);
+}
+
+function InputField({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  error,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+  error?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="ml-1 block text-[0.75rem] font-bold uppercase tracking-[0.22em] text-on-surface-variant"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={fieldClass(!!error)}
+      />
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="px-1 text-sm font-medium text-error">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-surface-container-highest/45 px-4 py-4 ring-1 ring-outline-variant/10">
+      <div className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
+        {label}
+      </div>
+      <div className="mt-2 break-all text-sm font-semibold text-on-surface">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePage() {
   const navigate = useNavigate();
+
+  const errorRef = useRef<HTMLDivElement | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -54,13 +179,10 @@ export function ProfilePage() {
   const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
 
-  function close() {
-    if (confirmDeleteOpen) {
-      setConfirmDeleteOpen(false);
-      return;
-    }
-    navigate(-1);
-  }
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -68,6 +190,7 @@ export function ProfilePage() {
     (async () => {
       setLoading(true);
       setError(null);
+      setFieldErrors({});
       try {
         const me = await profileService.getMe();
         if (!alive) return;
@@ -75,6 +198,7 @@ export function ProfilePage() {
         setUsername(me.username ?? "");
         setFirstName(me.first_name ?? "");
         setLastName(me.last_name ?? "");
+        setAvatarUrl(me.avatar_url ?? null);
         setDateOfBirth(me.date_of_birth ?? "");
         setClassLevel(me.class_level ?? "");
         setSpeciality(me.speciality ?? "");
@@ -97,74 +221,180 @@ export function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  const displayName = useMemo(() => {
+    const full = `${capitalizeFirst(firstName)} ${capitalizeFirst(lastName)}`.trim();
+    return full || username || "Student profile";
+  }, [firstName, lastName, username]);
+
+  function submitProfileForm() {
+    const form = document.getElementById("profile-form") as HTMLFormElement | null;
+    if (!form) return;
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+      return;
+    }
+
+    const submit = form.querySelector(
+      'button[type="submit"], input[type="submit"]'
+    ) as HTMLElement | null;
+    submit?.click();
+  }
+
+  function initials() {
+    const a = (firstName || "").trim()[0] ?? "";
+    const b = (lastName || "").trim()[0] ?? "";
+    return (a + b).toUpperCase() || "U";
+  }
+
+  function validate() {
+    const nextErrors: FieldErrorMap = {};
+
+    if (!email.trim()) nextErrors.email = "Email is required.";
+    if (!username.trim()) nextErrors.username = "Username is required.";
+    if (!dateOfBirth.trim()) nextErrors.date_of_birth = "Date of birth is required.";
+    if (!classLevel.trim()) nextErrors.class_level = "Class level is required.";
+    if (!parentEmail.trim()) nextErrors.parent_email = "Parent email is required.";
+    if (!parentPhone.trim()) nextErrors.parent_phone = "Parent phone is required.";
+
+    if (parentPhone.trim() && !/^\+\d{8,15}$/.test(parentPhone.trim())) {
+      nextErrors.parent_phone = "Phone must be in international format (e.g. +216XXXXXXXX).";
+    }
+
+    setFieldErrors(nextErrors);
+
+    const orderedKeys: (keyof FieldErrorMap)[] = [
+      "email",
+      "username",
+      "first_name",
+      "last_name",
+      "date_of_birth",
+      "class_level",
+      "speciality",
+      "parent_email",
+      "parent_phone",
+    ];
+
+    const firstInvalid = orderedKeys.find((k) => !!nextErrors[k]);
+    if (firstInvalid) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(String(firstInvalid)) as
+          | HTMLInputElement
+          | null;
+        el?.focus();
+      });
+    }
+
+    return Object.keys(nextErrors).length === 0;
+  }
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!validate()) {
+      setError("Please correct the highlighted fields.");
+      requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ block: "start" });
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      const trimmedEmail = email.trim();
-      const trimmedUsername = username.trim();
-      const trimmedDob = dateOfBirth.trim();
-      const trimmedClass = classLevel.trim();
-      const trimmedParentEmail = parentEmail.trim();
-      const trimmedParentPhone = parentPhone.trim();
-
       const payload = {
-        email: trimmedEmail,
-        username: trimmedUsername,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        date_of_birth: trimmedDob,
-        class_level: trimmedClass,
+        email: email.trim(),
+        username: username.trim(),
+        first_name: capitalizeFirst(firstName),
+        last_name: capitalizeFirst(lastName),
+        date_of_birth: dateOfBirth.trim(),
+        class_level: classLevel.trim(),
         speciality: speciality.trim(),
-        parent_email: trimmedParentEmail,
-        parent_phone: trimmedParentPhone,
+        parent_email: parentEmail.trim(),
+        parent_phone: parentPhone.trim(),
       };
 
-      if (!payload.email || !payload.username) {
-        setError("Email and username are required.");
-        return;
-      }
-
-      if (!payload.date_of_birth || !payload.class_level || !payload.parent_email || !payload.parent_phone) {
-        setError("Please fill in all required fields.");
-        return;
-      }
-
-      if (!/^\+216\d{8}$/.test(payload.parent_phone)) {
-        setError("parent_phone: Phone must match +216XXXXXXXX");
-        return;
-      }
-
       const updated = await profileService.updateMe(payload);
+
+      if (avatarFile) {
+        try {
+          const avatarUpdated = await profileService.uploadAvatar(avatarFile);
+          setAvatarUrl(
+            avatarUpdated.avatar_url
+              ? `${avatarUpdated.avatar_url}${avatarUpdated.avatar_url.includes("?") ? "&" : "?"}v=${Date.now()}`
+              : null
+          );
+          setAvatarFile(null);
+          setAvatarPreviewUrl(null);
+        } catch (err) {
+          const maybeAny = err as { response?: { data?: unknown } };
+          const data = maybeAny?.response?.data;
+          setError(formatDrfError(data));
+          setFieldErrors(extractFieldErrors(data));
+          return;
+        }
+      }
+
       setEmail(updated.email ?? "");
       setUsername(updated.username ?? "");
       setFirstName(updated.first_name ?? "");
       setLastName(updated.last_name ?? "");
+      setAvatarUrl(updated.avatar_url ?? avatarUrl ?? null);
       setDateOfBirth(updated.date_of_birth ?? "");
       setClassLevel(updated.class_level ?? "");
       setSpeciality(updated.speciality ?? "");
       setParentEmail(updated.parent_email ?? "");
       setParentPhone(updated.parent_phone ?? "");
+      setFieldErrors({});
       setMode("view");
     } catch (err) {
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny?.response?.data;
       setError(formatDrfError(data));
+      setFieldErrors(extractFieldErrors(data));
     } finally {
       setSaving(false);
     }
   }
 
+  async function onUploadAvatar() {
+    setError(null);
+    if (!avatarFile) {
+      setError("Please select an image first.");
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const updated = await profileService.uploadAvatar(avatarFile);
+      setAvatarUrl(
+        updated.avatar_url
+          ? `${updated.avatar_url}${updated.avatar_url.includes("?") ? "&" : "?"}v=${Date.now()}`
+          : null
+      );
+      setAvatarFile(null);
+      setAvatarPreviewUrl(null);
+    } catch (err) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny?.response?.data;
+      setError(formatDrfError(data));
+      setFieldErrors(extractFieldErrors(data));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   function requestDelete() {
     setError(null);
+    setDetailsOpen(true);
     setConfirmDeleteOpen(true);
   }
 
@@ -183,223 +413,460 @@ export function ProfilePage() {
     }
   }
 
-  function infoRow(label: string, value: string) {
-    return (
-      <div className="flex items-start justify-between gap-6 rounded-lg bg-surface-container-highest/40 px-4 py-3 ring-1 ring-outline-variant/10">
-        <div className="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">{label}</div>
-        <div className="font-body text-sm font-semibold text-on-surface text-right break-all">{value || "—"}</div>
-      </div>
-    );
+  function downloadAvatarSrc() {
+    return avatarPreviewUrl ?? avatarUrl ?? "";
   }
 
+  useEffect(() => {
+    if (mode !== "view") {
+      setDetailsOpen(false);
+      setConfirmDeleteOpen(false);
+    }
+  }, [mode]);
+
   return (
-    <div className="fixed inset-0 z-[60]">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/40"
-        onClick={close}
-      />
+    <StudyBeeShell>
+      <main className="relative mx-auto w-full max-w-7xl px-6 pb-24 pt-24 md:px-10">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-primary-container/20 blur-3xl" />
+          <div className="absolute right-[-6rem] top-28 h-72 w-72 rounded-full bg-secondary-container/18 blur-3xl" />
+          <div className="absolute bottom-[-4rem] left-10 h-72 w-72 rounded-full bg-tertiary-container/18 blur-3xl" />
+        </div>
 
-      <div className="absolute left-1/2 top-1/2 w-[min(92vw,740px)] -translate-x-1/2 -translate-y-1/2">
-        <div className="rounded-2xl bg-surface-container-low p-6 ring-1 ring-outline-variant/15 shadow-[0_30px_70px_rgba(0,0,0,0.25)]">
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Profile</h1>
-              <p className="mt-1 text-on-surface-variant">
-                {mode === "view" ? "Your student information." : "Edit your student information."}
-              </p>
+        <header className="mb-10 overflow-hidden rounded-3xl bg-surface-container-low/90 ring-1 ring-outline-variant/12 shadow-sm backdrop-blur-md">
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:gap-6">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-surface-container-highest/60 ring-4 ring-primary/12">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container text-2xl font-black text-on-primary font-headline">
+                      {initials()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 max-w-3xl">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/55 px-4 py-2 ring-1 ring-outline-variant/12">
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                      Profile
+                    </span>
+                  </div>
+                  <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
+                    {displayName}
+                  </h1>
+                  <p className="mt-2 font-body text-sm leading-6 text-on-surface-variant md:text-base">
+                    Manage your account details and keep everything up to date.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className={chipClass()}>{classLevel || "Class level"}</span>
+                    <span className={chipClass()}>{speciality || "Speciality"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {loading ? null : mode === "view" ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  <button
+                    type="button"
+                    aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen((v) => !v)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-surface-container-highest/70 px-5 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">info</span>
+                    {detailsOpen ? "Hide details" : "Details"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDeleteOpen(false);
+                      setMode("edit");
+                    }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] active:scale-95 focus-visible:ring-4 focus-visible:ring-primary/20"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">edit</span>
+                    Edit profile
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={requestDelete}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-error-container/20 px-6 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/30 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-error/15"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">delete</span>
+                    {deleting ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDeleteOpen(false);
+                      setMode("view");
+                    }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-surface-container-highest/70 px-5 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">close</span>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    aria-busy={saving}
+                    onClick={submitProfileForm}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/20"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">save</span>
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-full bg-surface-container-highest/70 px-4 py-2 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest"
-            >
-              Close
-            </button>
           </div>
+        </header>
 
-          {error ? (
-            <div className="mb-4 rounded-md bg-error-container/20 px-4 py-3 font-body text-sm font-semibold text-on-error-container whitespace-pre-line">
-              {error}
+        {error ? (
+          <div
+            ref={errorRef}
+            className="mb-6 rounded-2xl bg-error-container/20 px-4 py-3 text-sm font-semibold text-on-error-container ring-1 ring-outline-variant/10 whitespace-pre-line"
+          >
+            {error}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <section className={`${softCardClass()} px-6 py-16 md:px-8`}>
+            <div className="text-center">
+              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+              <p className="mt-4 font-body text-on-surface-variant">Loading profile...</p>
             </div>
-          ) : null}
-
-          {loading ? (
-            <p className="text-on-surface-variant">Loading...</p>
-          ) : mode === "view" ? (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {infoRow("Email", email)}
-                {infoRow("Username", username)}
-                {infoRow("First name", firstName)}
-                {infoRow("Last name", lastName)}
-                {infoRow("Date of birth", dateOfBirth)}
-                {infoRow("Class level", classLevel)}
-                {infoRow("Speciality", speciality)}
-                {infoRow("Parent email", parentEmail)}
-                {infoRow("Parent phone", parentPhone)}
+          </section>
+        ) : mode === "view" ? (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <section className={`${softCardClass()} p-6 lg:col-span-4 lg:sticky lg:top-24 lg:self-start lg:p-8`}>
+              <div className="flex items-center gap-4">
+                <div className="relative h-20 w-20 overflow-hidden rounded-full ring-4 ring-primary/15">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container text-xl font-black text-on-primary font-headline">
+                      {initials()}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                    {displayName}
+                  </div>
+                  <div className="mt-1 break-all font-body text-sm text-on-surface-variant">
+                    {email || "No email provided"}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <div className="mt-6 grid grid-cols-1 gap-3">
+                <div className="rounded-2xl bg-surface-container-highest/40 p-4 ring-1 ring-outline-variant/10">
+                  <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Education
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className={chipClass()}>{classLevel || "Class level"}</span>
+                    <span className={chipClass()}>{speciality || "Speciality"}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-surface-container-highest/40 p-4 ring-1 ring-outline-variant/10">
+                  <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Account
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="flex items-center gap-2 font-body text-sm text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[18px]">cake</span>
+                        Birthday
+                      </span>
+                      <span className="font-body text-sm font-semibold text-on-surface">
+                        {dateOfBirth || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setMode("edit")}
-                  className="rounded-full bg-gradient-primary px-8 py-3 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+                  aria-expanded={detailsOpen}
+                  onClick={() => setDetailsOpen(true)}
+                  className="rounded-2xl bg-surface-container-highest/40 p-4 text-left ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-4 focus-visible:ring-primary/15"
                 >
-                  Edit
+                  <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Details
+                  </div>
+                  <div className="mt-2 font-body text-sm font-semibold text-on-surface">
+                    {detailsOpen ? "Details are visible" : "Show all profile fields"}
+                  </div>
+                  <div className="mt-1 font-body text-sm text-on-surface-variant">
+                    Email, username, birthday, class, speciality, parent contact.
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  disabled={deleting}
-                  onClick={requestDelete}
-                  className="rounded-full bg-error-container/20 px-8 py-3 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/30 disabled:opacity-60"
-                >
-                  {deleting ? "Deleting..." : "Delete"}
-                </button>
               </div>
-            </div>
-          ) : (
-            <form className="space-y-5" onSubmit={onSave}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Email
-                  </label>
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass()} />
-                </div>
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Username
-                  </label>
-                  <input value={username} onChange={(e) => setUsername(e.target.value)} className={fieldClass()} />
-                </div>
-              </div>
+            </section>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    First name
-                  </label>
-                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={fieldClass()} />
+            <section className={`${softCardClass()} p-6 lg:col-span-8 lg:p-8`}>
+              {!detailsOpen ? (
+                <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+                  <div>
+                    <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
+                      Details
+                    </h2>
+                    <p className="mt-2 font-body text-sm text-on-surface-variant">
+                      Hidden by default. Click to reveal your full profile fields.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailsOpen(true)}
+                    className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
+                  >
+                    Show details
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Last name
-                  </label>
-                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={fieldClass()} />
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+                    <div>
+                      <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
+                        Details
+                      </h2>
+                      <p className="mt-2 font-body text-sm text-on-surface-variant">
+                        Your personal information and parent contact details.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmDeleteOpen(false);
+                        setDetailsOpen(false);
+                      }}
+                      className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
+                    >
+                      Hide
+                    </button>
+                  </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Date of birth
-                  </label>
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <InfoRow label="Email" value={email} />
+                    <InfoRow label="Username" value={username} />
+                    <InfoRow label="First name" value={capitalizeFirst(firstName)} />
+                    <InfoRow label="Last name" value={capitalizeFirst(lastName)} />
+                    <InfoRow label="Date of birth" value={dateOfBirth} />
+                    <InfoRow label="Class level" value={classLevel} />
+                    <InfoRow label="Speciality" value={speciality} />
+                    <InfoRow label="Parent email" value={parentEmail} />
+                    <InfoRow label="Parent phone" value={parentPhone} />
+                  </div>
+
+                  {confirmDeleteOpen ? (
+                    <div className="mt-8 rounded-3xl bg-error-container/12 p-6 ring-1 ring-outline-variant/10">
+                      <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-error-container">
+                        Confirm deletion
+                      </h3>
+                      <p className="mt-2 font-body text-sm leading-6 text-on-error-container/90">
+                        You’re about to permanently delete the account{" "}
+                        <span className="font-semibold">{email || username || ""}</span>. This action cannot be undone.
+                      </p>
+
+                      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => setConfirmDeleteOpen(false)}
+                          className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/15"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => void confirmDelete()}
+                          className="rounded-full bg-error-container/35 px-8 py-3 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/45 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-error/15"
+                        >
+                          {deleting ? "Deleting..." : "Yes, delete"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </section>
+          </div>
+        ) : (
+          <form id="profile-form" className="space-y-6" onSubmit={onSave}>
+            <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+            <section className={`${softCardClass()} p-6 md:p-8`}>
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full ring-4 ring-primary/15">
+                    {downloadAvatarSrc() ? (
+                      <img src={downloadAvatarSrc()} alt="Profile preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container text-xl font-black text-on-primary font-headline">
+                        {initials()}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
+                      Profile photo
+                    </h2>
+                    <p className="mt-1 font-body text-sm text-on-surface-variant">
+                      Upload a JPG or PNG.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    className={fieldClass()}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-on-surface-variant file:mr-3 file:rounded-full file:border-0 file:bg-surface-container-highest/70 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-on-surface file:ring-1 file:ring-outline-variant/10 hover:file:bg-surface-container-highest"
+                  />
+                  <button
+                    type="button"
+                    disabled={!avatarFile || avatarUploading}
+                    onClick={() => void onUploadAvatar()}
+                    aria-busy={avatarUploading}
+                    className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/20"
+                  >
+                    {avatarUploading ? "Uploading..." : "Upload"}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
+                <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                  Account
+                </h3>
+                <p className="mt-2 font-body text-sm text-on-surface-variant">
+                  Sign-in and identity information.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <InputField
+                    id="email"
+                    label="Email"
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
+                    error={fieldErrors.email}
+                  />
+                  <InputField
+                    id="username"
+                    label="Username"
+                    value={username}
+                    onChange={setUsername}
+                    error={fieldErrors.username}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Class level
-                  </label>
-                  <input value={classLevel} onChange={(e) => setClassLevel(e.target.value)} className={fieldClass()} />
+              </section>
+
+              <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
+                <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                  Personal
+                </h3>
+                <p className="mt-2 font-body text-sm text-on-surface-variant">
+                  Your basic personal details.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <InputField
+                    id="first_name"
+                    label="First name"
+                    value={firstName}
+                    onChange={setFirstName}
+                    error={fieldErrors.first_name}
+                  />
+                  <InputField
+                    id="last_name"
+                    label="Last name"
+                    value={lastName}
+                    onChange={setLastName}
+                    error={fieldErrors.last_name}
+                  />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Speciality
-                  </label>
-                  <input value={speciality} onChange={(e) => setSpeciality(e.target.value)} className={fieldClass()} />
+                <div className="mt-4">
+                  <InputField
+                    id="date_of_birth"
+                    label="Date of birth"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={setDateOfBirth}
+                    error={fieldErrors.date_of_birth}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                    Parent email
-                  </label>
-                  <input value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} className={fieldClass()} />
+              </section>
+
+              <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
+                <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                  School
+                </h3>
+                <p className="mt-2 font-body text-sm text-on-surface-variant">
+                  Class level and speciality.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <InputField
+                    id="class_level"
+                    label="Class level"
+                    value={classLevel}
+                    onChange={setClassLevel}
+                    error={fieldErrors.class_level}
+                  />
+                  <InputField
+                    id="speciality"
+                    label="Speciality"
+                    value={speciality}
+                    onChange={setSpeciality}
+                    error={fieldErrors.speciality}
+                  />
                 </div>
-              </div>
+              </section>
 
-              <div className="space-y-2">
-                <label className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant">
-                  Parent phone
-                </label>
-                <input
-                  value={parentPhone}
-                  onChange={(e) => setParentPhone(e.target.value)}
-                  placeholder="+216XXXXXXXX"
-                  className={fieldClass()}
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setMode("view")}
-                  className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-full bg-gradient-primary px-8 py-3 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-
-      {confirmDeleteOpen && !loading && (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center px-4">
-          <button
-            type="button"
-            aria-label="Close delete confirmation"
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setConfirmDeleteOpen(false)}
-          />
-
-          <div className="relative w-full max-w-lg rounded-3xl bg-surface-container-highest/95 p-6 ring-1 ring-outline-variant/15">
-            <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">Confirm deletion</h2>
-            <p className="mt-2 font-body text-on-surface-variant">
-              You’re about to permanently delete the account
-              <span className="font-semibold text-on-surface"> {email || username || ""}</span>. This action cannot be undone.
-            </p>
-
-            <div className="mt-5 rounded-2xl bg-error-container/15 px-4 py-3 ring-1 ring-outline-variant/10">
-              <div className="font-body text-sm font-semibold text-on-error-container">This will remove your profile and sign you out.</div>
+              <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
+                <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                  Parent contact
+                </h3>
+                <p className="mt-2 font-body text-sm text-on-surface-variant">
+                  Used for parental communication.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <InputField
+                    id="parent_email"
+                    label="Parent email"
+                    type="email"
+                    value={parentEmail}
+                    onChange={setParentEmail}
+                    error={fieldErrors.parent_email}
+                  />
+                  <InputField
+                    id="parent_phone"
+                    label="Parent phone"
+                    value={parentPhone}
+                    onChange={setParentPhone}
+                    placeholder="e.g. +216XXXXXXXX"
+                    error={fieldErrors.parent_phone}
+                  />
+                </div>
+              </section>
             </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setConfirmDeleteOpen(false)}
-                className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest disabled:opacity-60"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void confirmDelete()}
-                className="rounded-full bg-error-container/30 px-8 py-3 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/40 disabled:opacity-60"
-              >
-                {deleting ? "Deleting..." : "Yes, delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+          </form>
+        )}
+      </main>
+
+      <MarketingFooter />
+    </StudyBeeShell>
   );
 }

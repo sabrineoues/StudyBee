@@ -1,18 +1,32 @@
 import { motion } from "framer-motion";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
-import { SiteFooter } from "../components/SiteFooter";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { userService } from "../services/userService";
 
 export function SignInPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const fromSignup = params.get("signup") === "1";
+    if (!fromSignup) return;
+
+    const emailFromQuery = params.get("email");
+    if (emailFromQuery) setEmail(emailFromQuery);
+    setSubmitStatus("idle");
+    setSubmitMessage("Account created. Please sign in.");
+
+    navigate("/sign-in", { replace: true });
+  }, [location.search, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -123,7 +137,11 @@ export function SignInPage() {
                   <div
                     role="status"
                     aria-live="polite"
-                    className="rounded-md bg-error-container/20 px-4 py-3 text-sm font-semibold text-on-error-container whitespace-pre-line"
+                    className={
+                      submitStatus === "error"
+                        ? "rounded-md bg-error-container/20 px-4 py-3 text-sm font-semibold text-on-error-container whitespace-pre-line"
+                        : "rounded-md bg-secondary-container/35 px-4 py-3 text-sm font-semibold text-on-secondary-container whitespace-pre-line"
+                    }
                   >
                     {submitMessage}
                   </div>
@@ -206,15 +224,7 @@ export function SignInPage() {
         </div>
       </main>
 
-      <SiteFooter
-        brand="StudyBee"
-        copyright="© 2026 StudyBee. Built for the future of learning."
-        links={["Privacy Policy", "Terms of Service", "Cookie Settings"]}
-        layout="brand-links-copyright"
-        linksContainerClassName="flex gap-8"
-        linkClassName="font-body text-sm leading-relaxed text-on-surface-variant transition-colors hover:text-primary dark:text-surface-variant dark:hover:text-inverse-primary"
-        copyrightClassName="font-body text-sm leading-relaxed text-on-surface-variant dark:text-surface-variant"
-      />
+      <MarketingFooter />
     </div>
   );
 }

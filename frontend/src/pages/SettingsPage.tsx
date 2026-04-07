@@ -1,4 +1,5 @@
 import { StudyBeeShell } from "../components/StudyBeeShell";
+import { MarketingFooter } from "../components/MarketingFooter";
 
 const FLAG_EN =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuA7CA6jr2dtq6NjgNy7IwGwt6BoyNFt9w33lFkXuI91BNlqnEivew2ueqQ3xv7O2lKwZLuowd4N2ABS8bQ4Nae9XCPudhWQe18n1gRpRPZfTdxxsxbyjlzMwhIMC86nHI7dclrawRnzz8cB7mRmkKOxd26sNehQkUf7yL5YGiauvnrRek_2Jn9T4Z4Ix-6NAUwpHXoPSm6FeZs633GknBNy2EoZMMyPJr6__gzStJczzTA9SfrifoV66xlgCh15CbfkMOrPOx40OTE";
@@ -234,6 +235,8 @@ export function SettingsPage() {
           </button>
         </footer>
       </main>
+
+      <MarketingFooter />
     </StudyBeeShell>
   );
 }

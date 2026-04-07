@@ -6,6 +6,7 @@ from .views import (
     AdminUsersAPIView,
     MeAPIView,
     ProfileAPIView,
+    ProfileAvatarAPIView,
     StudentSignInAPIView,
     StudentSignUpAPIView,
 )
@@ -15,6 +16,7 @@ urlpatterns = [
     path('sign-in/', StudentSignInAPIView.as_view(), name='api_sign_in'),
     path('me/', MeAPIView.as_view(), name='api_me'),
     path('profile/', ProfileAPIView.as_view(), name='api_profile'),
+    path('profile/avatar/', ProfileAvatarAPIView.as_view(), name='api_profile_avatar'),
     path('admin/stats/', AdminStatsAPIView.as_view(), name='api_admin_stats'),
     path('admin/users/', AdminUsersAPIView.as_view(), name='api_admin_users'),
     path('admin/users/<int:user_id>/', AdminUserDetailAPIView.as_view(), name='api_admin_user_detail'),

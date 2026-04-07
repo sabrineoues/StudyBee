@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -180,7 +181,10 @@ class ProfileAPIView(APIView):
     def get(self, request):
         user = request.user
         profile = StudentProfile.objects.filter(user=user).first()
-        serializer = StudentProfileMeSerializer({"user": user, "profile": profile}, context={"user": user})
+        serializer = StudentProfileMeSerializer(
+            {"user": user, "profile": profile},
+            context={"user": user, "request": request},
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request):
@@ -198,7 +202,7 @@ class ProfileAPIView(APIView):
             {"user": user, "profile": profile},
             data=request.data,
             partial=True,
-            context={"user": user},
+            context={"user": user, "request": request},
         )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -232,10 +236,36 @@ class ProfileAPIView(APIView):
             profile.parent_phone = data["parent_phone"]
         profile.save()
 
-        out = StudentProfileMeSerializer({"user": user, "profile": profile}, context={"user": user})
+        out = StudentProfileMeSerializer({"user": user, "profile": profile}, context={"user": user, "request": request})
         return Response(out.data, status=status.HTTP_200_OK)
 
     def delete(self, request):
         user = request.user
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProfileAvatarAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request):
+        user = request.user
+        profile, _created = StudentProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                "first_name": user.first_name or "Prénom",
+                "last_name": user.last_name or "Nom",
+                "email": user.email or "email@example.com",
+            },
+        )
+
+        avatar = request.FILES.get("avatar")
+        if not avatar:
+            return Response({"avatar": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.avatar = avatar
+        profile.save()
+
+        out = StudentProfileMeSerializer({"user": user, "profile": profile}, context={"user": user, "request": request})
+        return Response(out.data, status=status.HTTP_200_OK)
