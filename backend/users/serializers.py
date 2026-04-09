@@ -388,6 +388,8 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
 class StudentProfileMeSerializer(serializers.Serializer):
     PHONE_REGEX = re.compile(r"^\+\d{8,15}$")
 
+    LANGUAGE_CHOICES = ("en", "fr")
+
     email = serializers.EmailField(required=False)
     username = serializers.CharField(required=False)
     first_name = serializers.CharField(required=False, allow_blank=True)
@@ -398,6 +400,8 @@ class StudentProfileMeSerializer(serializers.Serializer):
     speciality = serializers.CharField(required=False, allow_blank=True)
     parent_email = serializers.EmailField(required=False, allow_blank=True)
     parent_phone = serializers.CharField(required=False, allow_blank=True)
+
+    language = serializers.ChoiceField(choices=LANGUAGE_CHOICES, required=False)
 
     def to_representation(self, instance):
         user: User = instance["user"]
@@ -423,6 +427,7 @@ class StudentProfileMeSerializer(serializers.Serializer):
             "speciality": profile.speciality if profile else "",
             "parent_email": profile.parent_email if profile else "",
             "parent_phone": profile.parent_phone if profile else "",
+            "language": getattr(profile, "language", "en") if profile else "en",
         }
 
     def validate_email(self, value):

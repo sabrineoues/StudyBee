@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "../i18n";
 
 import { MarketingFooter } from "../components/MarketingFooter";
 import { StudyBeeShell } from "../components/StudyBeeShell";
@@ -40,9 +42,9 @@ function chipClass() {
 }
 
 function formatDrfError(data: unknown): string {
-  if (!data) return "Failed to save. Please check the fields.";
+  if (!data) return i18n.t("profile.errors.saveFailedGeneric");
   if (typeof data === "string") return data;
-  if (typeof data !== "object") return "Failed to save. Please check the fields.";
+  if (typeof data !== "object") return i18n.t("profile.errors.saveFailedGeneric");
 
   const obj = data as Record<string, unknown>;
   const detail = obj.detail;
@@ -60,7 +62,7 @@ function formatDrfError(data: unknown): string {
     }
   }
 
-  return lines.length ? lines.join("\n") : "Failed to save. Please check the fields.";
+  return lines.length ? lines.join("\n") : i18n.t("profile.errors.saveFailedGeneric");
 }
 
 function extractFieldErrors(data: unknown): FieldErrorMap {
@@ -157,6 +159,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 export function ProfilePage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const errorRef = useRef<HTMLDivElement | null>(null);
 
@@ -208,8 +211,8 @@ export function ProfilePage() {
         if (!alive) return;
         const maybeAny = err as { response?: { status?: number } };
         const status = maybeAny?.response?.status;
-        if (status === 401) setError("Session expired. Please sign in again.");
-        else setError("Failed to load profile.");
+        if (status === 401) setError(t("profile.errors.sessionExpired"));
+        else setError(t("profile.errors.failedToLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -232,8 +235,8 @@ export function ProfilePage() {
 
   const displayName = useMemo(() => {
     const full = `${capitalizeFirst(firstName)} ${capitalizeFirst(lastName)}`.trim();
-    return full || username || "Student profile";
-  }, [firstName, lastName, username]);
+    return full || username || t("profile.misc.studentProfileFallback");
+  }, [firstName, lastName, username, t]);
 
   function submitProfileForm() {
     const form = document.getElementById("profile-form") as HTMLFormElement | null;
@@ -258,15 +261,15 @@ export function ProfilePage() {
   function validate() {
     const nextErrors: FieldErrorMap = {};
 
-    if (!email.trim()) nextErrors.email = "Email is required.";
-    if (!username.trim()) nextErrors.username = "Username is required.";
-    if (!dateOfBirth.trim()) nextErrors.date_of_birth = "Date of birth is required.";
-    if (!classLevel.trim()) nextErrors.class_level = "Class level is required.";
-    if (!parentEmail.trim()) nextErrors.parent_email = "Parent email is required.";
-    if (!parentPhone.trim()) nextErrors.parent_phone = "Parent phone is required.";
+    if (!email.trim()) nextErrors.email = t("profile.validation.emailRequired");
+    if (!username.trim()) nextErrors.username = t("profile.validation.usernameRequired");
+    if (!dateOfBirth.trim()) nextErrors.date_of_birth = t("profile.validation.dobRequired");
+    if (!classLevel.trim()) nextErrors.class_level = t("profile.validation.classLevelRequired");
+    if (!parentEmail.trim()) nextErrors.parent_email = t("profile.validation.parentEmailRequired");
+    if (!parentPhone.trim()) nextErrors.parent_phone = t("profile.validation.parentPhoneRequired");
 
     if (parentPhone.trim() && !/^\+\d{8,15}$/.test(parentPhone.trim())) {
-      nextErrors.parent_phone = "Phone must be in international format (e.g. +216XXXXXXXX).";
+      nextErrors.parent_phone = t("profile.validation.phoneFormat");
     }
 
     setFieldErrors(nextErrors);
@@ -301,7 +304,7 @@ export function ProfilePage() {
     setError(null);
 
     if (!validate()) {
-      setError("Please correct the highlighted fields.");
+      setError(t("profile.errors.correctFields"));
       requestAnimationFrame(() => {
         errorRef.current?.scrollIntoView({ block: "start" });
       });
@@ -368,7 +371,7 @@ export function ProfilePage() {
   async function onUploadAvatar() {
     setError(null);
     if (!avatarFile) {
-      setError("Please select an image first.");
+      setError(t("profile.errors.selectImageFirst"));
       return;
     }
 
@@ -406,7 +409,7 @@ export function ProfilePage() {
       userService.signOut();
       navigate("/", { replace: true });
     } catch {
-      setError("Failed to delete account.");
+      setError(t("profile.errors.deleteFailed"));
     } finally {
       setDeleting(false);
       setConfirmDeleteOpen(false);
@@ -451,18 +454,18 @@ export function ProfilePage() {
                   <div className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/55 px-4 py-2 ring-1 ring-outline-variant/12">
                     <span className="h-2 w-2 rounded-full bg-primary" />
                     <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                      Profile
+                      {t("profile.badge")}
                     </span>
                   </div>
                   <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
                     {displayName}
                   </h1>
                   <p className="mt-2 font-body text-sm leading-6 text-on-surface-variant md:text-base">
-                    Manage your account details and keep everything up to date.
+                    {t("profile.subtitle")}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <span className={chipClass()}>{classLevel || "Class level"}</span>
-                    <span className={chipClass()}>{speciality || "Speciality"}</span>
+                    <span className={chipClass()}>{classLevel || t("profile.chipClassLevel")}</span>
+                    <span className={chipClass()}>{speciality || t("profile.chipSpeciality")}</span>
                   </div>
                 </div>
               </div>
@@ -476,7 +479,7 @@ export function ProfilePage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-surface-container-highest/70 px-5 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
                   >
                     <span className="material-symbols-outlined text-[20px]">info</span>
-                    {detailsOpen ? "Hide details" : "Details"}
+                    {detailsOpen ? t("profile.actions.hideDetails") : t("profile.actions.details")}
                   </button>
                   <button
                     type="button"
@@ -487,7 +490,7 @@ export function ProfilePage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] active:scale-95 focus-visible:ring-4 focus-visible:ring-primary/20"
                   >
                     <span className="material-symbols-outlined text-[20px]">edit</span>
-                    Edit profile
+                    {t("profile.actions.editProfile")}
                   </button>
                   <button
                     type="button"
@@ -496,7 +499,7 @@ export function ProfilePage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-error-container/20 px-6 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/30 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-error/15"
                   >
                     <span className="material-symbols-outlined text-[20px]">delete</span>
-                    {deleting ? "Deleting..." : "Delete"}
+                    {deleting ? t("profile.actions.deleting") : t("profile.actions.delete")}
                   </button>
                 </div>
               ) : (
@@ -510,7 +513,7 @@ export function ProfilePage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-surface-container-highest/70 px-5 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
                   >
                     <span className="material-symbols-outlined text-[20px]">close</span>
-                    Cancel
+                    {t("profile.actions.cancel")}
                   </button>
                   <button
                     type="button"
@@ -520,7 +523,7 @@ export function ProfilePage() {
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/20"
                   >
                     <span className="material-symbols-outlined text-[20px]">save</span>
-                    {saving ? "Saving..." : "Save"}
+                    {saving ? t("profile.actions.saving") : t("profile.actions.save")}
                   </button>
                 </div>
               )}
@@ -541,7 +544,7 @@ export function ProfilePage() {
           <section className={`${softCardClass()} px-6 py-16 md:px-8`}>
             <div className="text-center">
               <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-              <p className="mt-4 font-body text-on-surface-variant">Loading profile...</p>
+              <p className="mt-4 font-body text-on-surface-variant">{t("profile.loadingProfile")}</p>
             </div>
           </section>
         ) : mode === "view" ? (
@@ -562,7 +565,7 @@ export function ProfilePage() {
                     {displayName}
                   </div>
                   <div className="mt-1 break-all font-body text-sm text-on-surface-variant">
-                    {email || "No email provided"}
+                    {email || t("profile.noEmailProvided")}
                   </div>
                 </div>
               </div>
@@ -570,23 +573,23 @@ export function ProfilePage() {
               <div className="mt-6 grid grid-cols-1 gap-3">
                 <div className="rounded-2xl bg-surface-container-highest/40 p-4 ring-1 ring-outline-variant/10">
                   <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Education
+                    {t("profile.sections.education")}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={chipClass()}>{classLevel || "Class level"}</span>
-                    <span className={chipClass()}>{speciality || "Speciality"}</span>
+                    <span className={chipClass()}>{classLevel || t("profile.chipClassLevel")}</span>
+                    <span className={chipClass()}>{speciality || t("profile.chipSpeciality")}</span>
                   </div>
                 </div>
 
                 <div className="rounded-2xl bg-surface-container-highest/40 p-4 ring-1 ring-outline-variant/10">
                   <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Account
+                    {t("profile.sections.account")}
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-4">
                       <span className="flex items-center gap-2 font-body text-sm text-on-surface-variant">
                         <span className="material-symbols-outlined text-[18px]">cake</span>
-                        Birthday
+                        {t("profile.sections.birthday")}
                       </span>
                       <span className="font-body text-sm font-semibold text-on-surface">
                         {dateOfBirth || "—"}
@@ -602,13 +605,13 @@ export function ProfilePage() {
                   className="rounded-2xl bg-surface-container-highest/40 p-4 text-left ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-4 focus-visible:ring-primary/15"
                 >
                   <div className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Details
+                    {t("profile.sections.details")}
                   </div>
                   <div className="mt-2 font-body text-sm font-semibold text-on-surface">
-                    {detailsOpen ? "Details are visible" : "Show all profile fields"}
+                    {detailsOpen ? t("profile.sections.detailsVisible") : t("profile.sections.showAllFields")}
                   </div>
                   <div className="mt-1 font-body text-sm text-on-surface-variant">
-                    Email, username, birthday, class, speciality, parent contact.
+                    {t("profile.sections.detailsHint")}
                   </div>
                 </button>
               </div>
@@ -619,10 +622,10 @@ export function ProfilePage() {
                 <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
                   <div>
                     <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
-                      Details
+                      {t("profile.sections.detailsHiddenTitle")}
                     </h2>
                     <p className="mt-2 font-body text-sm text-on-surface-variant">
-                      Hidden by default. Click to reveal your full profile fields.
+                      {t("profile.sections.detailsHiddenText")}
                     </p>
                   </div>
                   <button
@@ -630,7 +633,7 @@ export function ProfilePage() {
                     onClick={() => setDetailsOpen(true)}
                     className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
                   >
-                    Show details
+                    {t("profile.sections.showDetails")}
                   </button>
                 </div>
               ) : (
@@ -638,10 +641,10 @@ export function ProfilePage() {
                   <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
                     <div>
                       <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
-                        Details
+                        {t("profile.sections.details")}
                       </h2>
                       <p className="mt-2 font-body text-sm text-on-surface-variant">
-                        Your personal information and parent contact details.
+                        {t("profile.sections.detailsSubtitle")}
                       </p>
                     </div>
                     <button
@@ -652,30 +655,33 @@ export function ProfilePage() {
                       }}
                       className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest focus-visible:ring-4 focus-visible:ring-primary/15"
                     >
-                      Hide
+                      {t("profile.sections.hide")}
                     </button>
                   </div>
 
                   <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <InfoRow label="Email" value={email} />
-                    <InfoRow label="Username" value={username} />
-                    <InfoRow label="First name" value={capitalizeFirst(firstName)} />
-                    <InfoRow label="Last name" value={capitalizeFirst(lastName)} />
-                    <InfoRow label="Date of birth" value={dateOfBirth} />
-                    <InfoRow label="Class level" value={classLevel} />
-                    <InfoRow label="Speciality" value={speciality} />
-                    <InfoRow label="Parent email" value={parentEmail} />
-                    <InfoRow label="Parent phone" value={parentPhone} />
+                    <InfoRow label={t("profile.fields.email")} value={email} />
+                    <InfoRow label={t("profile.fields.username")} value={username} />
+                    <InfoRow label={t("profile.fields.firstName")} value={capitalizeFirst(firstName)} />
+                    <InfoRow label={t("profile.fields.lastName")} value={capitalizeFirst(lastName)} />
+                    <InfoRow label={t("profile.fields.dateOfBirth")} value={dateOfBirth} />
+                    <InfoRow label={t("profile.fields.classLevel")} value={classLevel} />
+                    <InfoRow label={t("profile.fields.speciality")} value={speciality} />
+                    <InfoRow label={t("profile.fields.parentEmail")} value={parentEmail} />
+                    <InfoRow label={t("profile.fields.parentPhone")} value={parentPhone} />
                   </div>
 
                   {confirmDeleteOpen ? (
                     <div className="mt-8 rounded-3xl bg-error-container/12 p-6 ring-1 ring-outline-variant/10">
                       <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-error-container">
-                        Confirm deletion
+                        {t("profile.deleteConfirm.title")}
                       </h3>
                       <p className="mt-2 font-body text-sm leading-6 text-on-error-container/90">
-                        You’re about to permanently delete the account{" "}
-                        <span className="font-semibold">{email || username || ""}</span>. This action cannot be undone.
+                        <Trans
+                          i18nKey="profile.deleteConfirm.text"
+                          values={{ identity: email || username || "" }}
+                          components={{ strong: <span className="font-semibold" /> }}
+                        />
                       </p>
 
                       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -685,7 +691,7 @@ export function ProfilePage() {
                           onClick={() => setConfirmDeleteOpen(false)}
                           className="rounded-full bg-surface-container-highest/70 px-6 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 hover:bg-surface-container-highest disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/15"
                         >
-                          Cancel
+                          {t("profile.actions.cancel")}
                         </button>
                         <button
                           type="button"
@@ -693,7 +699,7 @@ export function ProfilePage() {
                           onClick={() => void confirmDelete()}
                           className="rounded-full bg-error-container/35 px-8 py-3 text-sm font-bold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/45 disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-error/15"
                         >
-                          {deleting ? "Deleting..." : "Yes, delete"}
+                          {deleting ? t("profile.actions.deleting") : t("profile.deleteConfirm.yesDelete")}
                         </button>
                       </div>
                     </div>
@@ -710,7 +716,11 @@ export function ProfilePage() {
                 <div className="flex items-center gap-4">
                   <div className="relative h-20 w-20 overflow-hidden rounded-full ring-4 ring-primary/15">
                     {downloadAvatarSrc() ? (
-                      <img src={downloadAvatarSrc()} alt="Profile preview" className="h-full w-full object-cover" />
+                      <img
+                        src={downloadAvatarSrc()}
+                        alt={t("profile.edit.profilePreviewAlt")}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container text-xl font-black text-on-primary font-headline">
                         {initials()}
@@ -719,10 +729,10 @@ export function ProfilePage() {
                   </div>
                   <div>
                     <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
-                      Profile photo
+                      {t("profile.edit.profilePhotoTitle")}
                     </h2>
                     <p className="mt-1 font-body text-sm text-on-surface-variant">
-                      Upload a JPG or PNG.
+                      {t("profile.edit.profilePhotoHint")}
                     </p>
                   </div>
                 </div>
@@ -741,7 +751,7 @@ export function ProfilePage() {
                     aria-busy={avatarUploading}
                     className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-on-primary shadow-sm transition-transform hover:scale-[1.02] disabled:opacity-60 focus-visible:ring-4 focus-visible:ring-primary/20"
                   >
-                    {avatarUploading ? "Uploading..." : "Upload"}
+                    {avatarUploading ? t("profile.edit.uploading") : t("profile.edit.upload")}
                   </button>
                 </div>
               </div>
@@ -750,15 +760,15 @@ export function ProfilePage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
               <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
                 <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
-                  Account
+                  {t("profile.edit.accountTitle")}
                 </h3>
                 <p className="mt-2 font-body text-sm text-on-surface-variant">
-                  Sign-in and identity information.
+                  {t("profile.edit.accountHint")}
                 </p>
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <InputField
                     id="email"
-                    label="Email"
+                    label={t("profile.fields.email")}
                     type="email"
                     value={email}
                     onChange={setEmail}
@@ -766,7 +776,7 @@ export function ProfilePage() {
                   />
                   <InputField
                     id="username"
-                    label="Username"
+                    label={t("profile.fields.username")}
                     value={username}
                     onChange={setUsername}
                     error={fieldErrors.username}
@@ -776,22 +786,22 @@ export function ProfilePage() {
 
               <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
                 <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
-                  Personal
+                  {t("profile.edit.personalTitle")}
                 </h3>
                 <p className="mt-2 font-body text-sm text-on-surface-variant">
-                  Your basic personal details.
+                  {t("profile.edit.personalHint")}
                 </p>
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <InputField
                     id="first_name"
-                    label="First name"
+                    label={t("profile.fields.firstName")}
                     value={firstName}
                     onChange={setFirstName}
                     error={fieldErrors.first_name}
                   />
                   <InputField
                     id="last_name"
-                    label="Last name"
+                    label={t("profile.fields.lastName")}
                     value={lastName}
                     onChange={setLastName}
                     error={fieldErrors.last_name}
@@ -800,7 +810,7 @@ export function ProfilePage() {
                 <div className="mt-4">
                   <InputField
                     id="date_of_birth"
-                    label="Date of birth"
+                    label={t("profile.fields.dateOfBirth")}
                     type="date"
                     value={dateOfBirth}
                     onChange={setDateOfBirth}
@@ -811,22 +821,22 @@ export function ProfilePage() {
 
               <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
                 <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
-                  School
+                  {t("profile.edit.schoolTitle")}
                 </h3>
                 <p className="mt-2 font-body text-sm text-on-surface-variant">
-                  Class level and speciality.
+                  {t("profile.edit.schoolHint")}
                 </p>
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <InputField
                     id="class_level"
-                    label="Class level"
+                    label={t("profile.fields.classLevel")}
                     value={classLevel}
                     onChange={setClassLevel}
                     error={fieldErrors.class_level}
                   />
                   <InputField
                     id="speciality"
-                    label="Speciality"
+                    label={t("profile.fields.speciality")}
                     value={speciality}
                     onChange={setSpeciality}
                     error={fieldErrors.speciality}
@@ -836,15 +846,15 @@ export function ProfilePage() {
 
               <section className={`${softCardClass()} p-6 lg:col-span-6 lg:p-8`}>
                 <h3 className="font-headline text-xl font-extrabold tracking-tight text-on-surface">
-                  Parent contact
+                  {t("profile.edit.parentTitle")}
                 </h3>
                 <p className="mt-2 font-body text-sm text-on-surface-variant">
-                  Used for parental communication.
+                  {t("profile.edit.parentHint")}
                 </p>
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <InputField
                     id="parent_email"
-                    label="Parent email"
+                    label={t("profile.fields.parentEmail")}
                     type="email"
                     value={parentEmail}
                     onChange={setParentEmail}
@@ -852,10 +862,10 @@ export function ProfilePage() {
                   />
                   <InputField
                     id="parent_phone"
-                    label="Parent phone"
+                    label={t("profile.fields.parentPhone")}
                     value={parentPhone}
                     onChange={setParentPhone}
-                    placeholder="e.g. +216XXXXXXXX"
+                    placeholder={t("profile.edit.phonePlaceholder")}
                     error={fieldErrors.parent_phone}
                   />
                 </div>

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'studysessions',
     'todolist',
     'rest_framework',
+    'vision',
     ]
 
 MIDDLEWARE = [

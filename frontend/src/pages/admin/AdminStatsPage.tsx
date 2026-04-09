@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n";
 import { adminService, type AdminUser } from "../../services/adminService";
 
 function ageFromDob(dob: string | null | undefined): number | null {
@@ -33,7 +35,7 @@ function titleCaseWords(value: string): string {
 
 function formatSpecialityLabel(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed) return "Unspecified";
+  if (!trimmed) return i18n.t("admin.common.unspecified");
   if (/^[a-zA-Z]{1,5}$/.test(trimmed)) return trimmed.toLocaleUpperCase();
   return titleCaseWords(trimmed);
 }
@@ -182,6 +184,7 @@ function DonutCard({
 }
 
 export function AdminStatsPage() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,9 +199,9 @@ export function AdminStatsPage() {
         if (!alive) return;
         const maybeAny = err as { response?: { status?: number } };
         const status = maybeAny?.response?.status;
-        if (status === 401) setError("Session expired. Please sign in again.");
-        else if (status === 403) setError("Access denied. Your account is not staff.");
-        else setError("Failed to load stats.");
+        if (status === 401) setError(t("admin.errors.sessionExpired"));
+        else if (status === 403) setError(t("admin.errors.accessDeniedNotStaff"));
+        else setError(t("admin.errors.failedToLoadStats"));
       }
     })();
 
@@ -222,7 +225,7 @@ export function AdminStatsPage() {
       unknown: 0,
     };
 
-    const specialityCounts = new Map<string, { label: string; value: number }>();
+    const specialityCounts = new Map<string, { key: string; label: string; value: number }>();
 
     for (const u of users) {
       if (u.is_active) active += 1;
@@ -242,7 +245,7 @@ export function AdminStatsPage() {
       const label = formatSpecialityLabel(rawSpeciality);
       const existing = specialityCounts.get(key);
       if (existing) existing.value += 1;
-      else specialityCounts.set(key, { label, value: 1 });
+      else specialityCounts.set(key, { key, label, value: 1 });
     }
 
     const staffNonSuper = Math.max(staff - superusers, 0);
@@ -271,13 +274,13 @@ export function AdminStatsPage() {
     <main className="min-w-0">
       <header className="mb-10">
         <div className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant ring-1 ring-outline-variant/10">
-          Dashboard
+          {t("admin.common.dashboardChip")}
         </div>
         <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
-          Stats
+          {t("admin.stats.title")}
         </h1>
         <p className="mt-2 max-w-2xl text-on-surface-variant">
-          Overview of your platform.
+          {t("admin.common.overview")}
         </p>
       </header>
 
@@ -289,23 +292,23 @@ export function AdminStatsPage() {
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <DonutCard
-          title="Roles"
-          subtitle="Distribution of privileges across accounts."
-          centerLabel="Total"
+          title={t("admin.stats.rolesTitle")}
+          subtitle={t("admin.stats.rolesSubtitle")}
+          centerLabel={t("admin.common.total")}
           centerValue={derived ? String(derived.total) : "…"}
           segments={[
             {
-              label: "Superusers",
+              label: t("admin.stats.superusers"),
               value: derived?.superusers ?? 0,
               className: "text-primary",
             },
             {
-              label: "Staff",
+              label: t("admin.stats.staff"),
               value: derived?.staffNonSuper ?? 0,
               className: "text-tertiary",
             },
             {
-              label: "Regular",
+              label: t("admin.stats.regular"),
               value: derived?.regular ?? 0,
               className: "text-on-surface-variant",
             },
@@ -313,18 +316,18 @@ export function AdminStatsPage() {
         />
 
         <DonutCard
-          title="Activation"
-          subtitle="Who can currently sign in."
-          centerLabel="Total"
+          title={t("admin.stats.activationTitle")}
+          subtitle={t("admin.stats.activationSubtitle")}
+          centerLabel={t("admin.common.total")}
           centerValue={derived ? String(derived.total) : "…"}
           segments={[
             {
-              label: "Active",
+              label: t("admin.stats.active"),
               value: derived?.active ?? 0,
               className: "text-primary",
             },
             {
-              label: "Inactive",
+              label: t("admin.stats.inactive"),
               value: derived?.inactive ?? 0,
               className: "text-tertiary",
             },
@@ -334,9 +337,9 @@ export function AdminStatsPage() {
 
       <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <DonutCard
-          title="Age"
-          subtitle="Users grouped by age ranges."
-          centerLabel="Total"
+          title={t("admin.stats.ageTitle")}
+          subtitle={t("admin.stats.ageSubtitle")}
+          centerLabel={t("admin.common.total")}
           centerValue={derived ? String(derived.total) : "…"}
           segments={[
             {
@@ -360,7 +363,7 @@ export function AdminStatsPage() {
               className: "text-tertiary/60",
             },
             {
-              label: "Unknown",
+              label: t("admin.common.unknown"),
               value: derived?.ageBuckets.unknown ?? 0,
               className: "text-outline",
             },
@@ -368,9 +371,9 @@ export function AdminStatsPage() {
         />
 
         <DonutCard
-          title="Speciality"
-          subtitle="Top specialities across accounts."
-          centerLabel="Total"
+          title={t("admin.stats.specialityTitle")}
+          subtitle={t("admin.stats.specialitySubtitle")}
+          centerLabel={t("admin.common.total")}
           centerValue={derived ? String(derived.total) : "…"}
           segments={(() => {
             const colors = [
@@ -381,7 +384,7 @@ export function AdminStatsPage() {
             ];
 
             const top = (derived?.topSpecialities ?? []).map((s, idx) => {
-              const isNeutral = s.label === "Unspecified" || s.label === "Other";
+              const isNeutral = s.key === "unspecified" || s.key === "other";
               return {
                 label: s.label,
                 value: s.value,
@@ -391,7 +394,7 @@ export function AdminStatsPage() {
 
             const other = derived?.otherSpecialitiesValue ?? 0;
             return other > 0
-              ? [...top, { label: "Other", value: other, className: "text-outline" }]
+              ? [...top, { label: t("admin.common.other"), value: other, className: "text-outline" }]
               : top;
           })()}
         />

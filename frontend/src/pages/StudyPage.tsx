@@ -1,5 +1,9 @@
+import { useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { MarketingFooter } from "../components/MarketingFooter";
+import { visionService } from "../services/visionService";
 
 const BEE_IMG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAA9WzlnKw2cDsXYu08D_iqZ9_DW4uWWmaJSg0i2gxaFApq9m3cn_tXn2iRhGUkQlJoad4Vrt2S0S5FRxLJrnddCYZSqCHRHRlzOiBkFSQyvymkDML_RkK3CghyptPis_zpjvgKKe3fxIKCuMJcf86QktCiIbGpwju8b-ERrG2Y6CaS1pwyP-KY76b7wc6ZtOs5u_cKBI6TkAHpH6FApXkxutKcq4vujXXXiuzhkv4yrAi5HMsAd3L57FH6ynccAD-CwxOzbItlkNs";
@@ -7,14 +11,117 @@ const DIAGRAM_IMG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAaTR3c5-HTnKg1MpqAB42kVkAKTzQurXurJhmmjdzBsSZn2QlhLEfqmXfZWhxgTTw5maIrHAlReoj_O154IOXMb1T_e2ZXqKBOQdqjBMXHS01aV6bJbAnO1O-XEmdhb8fFyrgHSwyfGXIezrfco2lpa9CAj6Z-NQvVZ2SoJwjgjf6Mnkd_qkDQFmR6H8O5Ff_JgC_hFccmrWulZHbicG2OLhwRzIkp6OOIR6xwif3Cj2sbwP-GCtp7V-ruW8UTKV2vlfHh1ksllRg";
 
 export function StudyPage() {
+  const { t } = useTranslation();
+  const [tiredOpen, setTiredOpen] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [sessionStarting, setSessionStarting] = useState(false);
+  const lastTiredPopupMinuteKeyRef = useRef<number | null>(null);
+  const pollingRef = useRef(false);
+  const pollIdRef = useRef<number | null>(null);
+  const aliveRef = useRef(true);
+  const startingRef = useRef(false);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      if (pollIdRef.current != null) window.clearInterval(pollIdRef.current);
+      pollIdRef.current = null;
+    };
+  }, []);
+
+  const pollOnce = async () => {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    try {
+      const status = await visionService.getFatigueStatus();
+      if (!aliveRef.current) return;
+
+      // Prefer the backend's 60s window key; fall back to updated_at if missing.
+      const minuteKey = status.window_started_at ?? Math.floor(status.updated_at / 60);
+      const isTiredNow = status.blinks_per_minute > 20;
+
+      if (!isTiredNow) {
+        setTiredOpen(false);
+        return;
+      }
+
+      // Show at most once per minute window.
+      if (lastTiredPopupMinuteKeyRef.current !== minuteKey) {
+        setTiredOpen(true);
+        lastTiredPopupMinuteKeyRef.current = minuteKey;
+      }
+    } catch (err) {
+      if (!aliveRef.current) return;
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn("Fatigue polling failed", err);
+      }
+    } finally {
+      pollingRef.current = false;
+    }
+  };
+
+  const startSession = async () => {
+    if (sessionStarted || startingRef.current) return;
+    startingRef.current = true;
+    setSessionStarting(true);
+    lastTiredPopupMinuteKeyRef.current = null;
+    setTiredOpen(false);
+
+    let startedOk = false;
+    try {
+      await visionService.startFatigueMonitor({ camera: 0 });
+      startedOk = true;
+      setSessionStarted(true);
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn("Fatigue monitor failed to start", err);
+      }
+      // Keep button enabled so user can retry.
+    } finally {
+      startingRef.current = false;
+      setSessionStarting(false);
+    }
+
+    if (!startedOk) return;
+
+    await pollOnce();
+    if (pollIdRef.current == null) {
+      pollIdRef.current = window.setInterval(pollOnce, 5000);
+    }
+  };
+
   return (
     <StudyBeeShell>
+      {tiredOpen ? (
+        <div className="fixed inset-x-0 top-24 z-[60] px-6 md:px-12">
+          <div className="mx-auto flex max-w-xl items-center justify-between gap-4 rounded-2xl bg-error-container/25 px-5 py-4 text-on-error-container ring-1 ring-outline-variant/12 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[22px]">warning</span>
+              <div className="font-body text-sm font-semibold">
+                {t("study.tiredPopup.text")}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTiredOpen(false)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-highest/60 text-on-surface-variant ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest"
+              aria-label={t("study.tiredPopup.close")}
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <main className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-8 px-8 pb-12 pt-24 md:flex-row">
         <div className="flex-1 space-y-8 lg:max-w-[450px]">
           <section className="relative flex flex-col items-center overflow-hidden rounded-xl bg-surface-container-low p-8 text-center shadow-sm">
             <div className="absolute right-0 top-0 -mr-16 -mt-16 h-32 w-32 rounded-full bg-primary/5" />
             <span className="label-md mb-6 block uppercase tracking-widest text-outline">
-              Deep Focus Mode
+              {t("study.deepFocusMode")}
             </span>
             <div className="relative mb-8 flex h-64 w-64 items-center justify-center">
               <svg className="absolute h-full w-full -rotate-90">
@@ -44,17 +151,19 @@ export function StudyPage() {
                   24:59
                 </span>
                 <span className="mt-1 text-sm font-medium text-outline">
-                  minutes remaining
+                  {t("study.minutesRemaining")}
                 </span>
               </div>
             </div>
             <div className="flex w-full gap-4">
               <button
                 type="button"
+                onClick={startSession}
+                disabled={sessionStarted || sessionStarting}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-primary-container py-4 text-lg font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95"
               >
                 <span className="material-symbols-outlined">play_arrow</span>
-                Start Session
+                {t("study.startSession")}
               </button>
               <button
                 type="button"
@@ -71,11 +180,10 @@ export function StudyPage() {
             </div>
             <div className="space-y-2">
               <h3 className="font-headline text-lg font-bold text-on-tertiary-container">
-                StudyBee Tip
+                {t("study.studyBeeTip")}
               </h3>
               <p className="text-base italic leading-relaxed text-on-tertiary-container/80">
-                &quot;Hey study buddy! You&apos;ve been focused for 45 minutes.
-                How about a 5-minute stretch?&quot;
+                {t("study.tipQuote")}
               </p>
             </div>
           </section>
@@ -84,14 +192,14 @@ export function StudyPage() {
             <div className="mb-3 flex items-end justify-between">
               <div>
                 <span className="font-headline mb-1 block text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                  Current Progress
+                  {t("study.currentProgress")}
                 </span>
                 <h3 className="font-headline text-lg font-bold text-on-surface">
-                  Session Focus
+                  {t("study.sessionFocus")}
                 </h3>
               </div>
               <span className="rounded-full bg-primary/10 px-3 py-1 font-headline text-sm font-bold text-primary">
-                2/3 Goals Met
+                {t("study.goalsMet", { done: 2, total: 3 })}
               </span>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-primary/10">
@@ -101,24 +209,24 @@ export function StudyPage() {
               />
             </div>
             <p className="mt-3 text-[11px] font-medium text-outline">
-              Keep going! You&apos;re almost at your session milestone.
+              {t("study.keepGoing")}
             </p>
           </section>
 
           <section className="space-y-6 rounded-xl bg-surface-container-low p-8">
             <div className="flex items-center justify-between">
               <h2 className="font-headline text-xl font-bold text-on-surface">
-                Session Goals
+                {t("study.sessionGoals")}
               </h2>
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
-                3 Pending
+                {t("study.pending", { count: 3 })}
               </span>
             </div>
             <div className="space-y-3">
               <div className="group flex cursor-pointer items-center gap-4 rounded-lg bg-surface-container-lowest p-4 transition-all hover:shadow-md">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary group-hover:bg-primary/5" />
                 <span className="flex-1 font-medium text-on-surface">
-                  Summarize Chapter 4: Neural Nets
+                  {t("study.goal1")}
                 </span>
                 <span className="material-symbols-outlined text-outline/40 opacity-0 transition-opacity group-hover:opacity-100">
                   drag_indicator
@@ -127,7 +235,7 @@ export function StudyPage() {
               <div className="group flex cursor-pointer items-center gap-4 rounded-lg bg-surface-container-lowest p-4 transition-all hover:shadow-md">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary" />
                 <span className="flex-1 font-medium text-on-surface">
-                  Complete calculus practice problems
+                  {t("study.goal2")}
                 </span>
               </div>
               <div className="flex cursor-pointer items-center gap-4 rounded-lg bg-surface-container-lowest p-4 opacity-60">
@@ -140,7 +248,7 @@ export function StudyPage() {
                   </span>
                 </div>
                 <span className="flex-1 font-medium text-on-surface line-through">
-                  Set up session environment
+                  {t("study.goal3")}
                 </span>
               </div>
             </div>
@@ -149,7 +257,7 @@ export function StudyPage() {
               className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-outline-variant py-4 font-semibold text-outline transition-all hover:border-primary hover:text-primary"
             >
               <span className="material-symbols-outlined">add</span>
-              Add new goal
+              {t("study.addNewGoal")}
             </button>
           </section>
         </div>
@@ -167,11 +275,11 @@ export function StudyPage() {
               </div>
               <div>
                 <h2 className="font-headline font-bold text-on-surface">
-                  StudyBee Explainer
+                  {t("study.explainer.title")}
                 </h2>
                 <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                  AuraFlow AI Active
+                  {t("study.explainer.status")}
                 </span>
               </div>
             </div>
@@ -179,12 +287,14 @@ export function StudyPage() {
               <button
                 type="button"
                 className="rounded-full p-2 text-outline transition-colors hover:bg-surface-container-highest"
+                aria-label={t("study.explainer.settingsLabel")}
               >
                 <span className="material-symbols-outlined">settings</span>
               </button>
               <button
                 type="button"
                 className="rounded-full p-2 text-outline transition-colors hover:bg-surface-container-highest"
+                aria-label={t("study.explainer.historyLabel")}
               >
                 <span className="material-symbols-outlined">history</span>
               </button>
@@ -201,10 +311,13 @@ export function StudyPage() {
               <div className="space-y-2">
                 <div className="rounded-tr-xl rounded-b-xl bg-white p-5 shadow-sm">
                   <p className="leading-relaxed text-on-surface">
-                    I see you&apos;re working on{" "}
-                    <strong className="text-primary">Neural Networks</strong>.
-                    Would you like an analogy for{" "}
-                    <em className="italic">Backpropagation</em>?
+                    <Trans
+                      i18nKey="study.chat.assistantMsg1"
+                      components={{
+                        strong: <strong className="text-primary" />,
+                        em: <em className="italic" />,
+                      }}
+                    />
                   </p>
                 </div>
                 <span className="px-1 text-[10px] text-outline">10:42 AM</span>
@@ -220,8 +333,7 @@ export function StudyPage() {
               <div className="space-y-2 text-right">
                 <div className="rounded-tl-xl rounded-b-xl bg-primary p-5 text-white shadow-md">
                   <p className="leading-relaxed">
-                    Let&apos;s start with the analogy! I&apos;m finding the
-                    abstract part hard to visualize.
+                    {t("study.chat.userMsg1")}
                   </p>
                 </div>
                 <span className="px-1 text-[10px] text-outline">10:43 AM</span>
@@ -237,19 +349,17 @@ export function StudyPage() {
               <div className="flex-1 space-y-4">
                 <div className="space-y-4 rounded-tr-xl rounded-b-xl bg-white p-6 shadow-sm">
                   <p className="leading-relaxed text-on-surface">
-                    Imagine you&apos;re trying to hit a target with a bow and
-                    arrow. 🎯
+                    {t("study.chat.assistantMsg2Line1")}
                   </p>
                   <p className="leading-relaxed text-on-surface">
-                    Forward pass, loss, then backpropagation — adjust for the next
-                    shot.
+                    {t("study.chat.assistantMsg2Line2")}
                   </p>
                   <div className="rounded-lg border border-outline-variant/10 bg-surface p-4">
                     <h4 className="mb-2 text-sm font-bold uppercase tracking-tight text-primary">
-                      Key Visual
+                      {t("study.chat.keyVisual")}
                     </h4>
                     <img
-                      alt="Diagram"
+                      alt={t("study.chat.diagramAlt")}
                       className="w-full rounded-md shadow-inner"
                       src={DIAGRAM_IMG}
                     />
@@ -260,13 +370,13 @@ export function StudyPage() {
                     type="button"
                     className="rounded-full bg-secondary-container/50 px-4 py-2 text-xs font-bold text-on-secondary-container transition-all hover:bg-secondary-container"
                   >
-                    Tell me more
+                    {t("study.chat.tellMeMore")}
                   </button>
                   <button
                     type="button"
                     className="rounded-full bg-surface-container-highest px-4 py-2 text-xs font-bold text-on-surface-variant transition-all hover:bg-surface-container-high"
                   >
-                    Show math
+                    {t("study.chat.showMath")}
                   </button>
                 </div>
               </div>
@@ -277,7 +387,7 @@ export function StudyPage() {
             <div className="group relative">
               <textarea
                 rows={2}
-                placeholder="Ask StudyBee anything..."
+                placeholder={t("study.chat.askPlaceholder")}
                 className="w-full resize-none rounded-xl border-none bg-surface-container-high p-4 pr-16 text-on-surface placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/20"
               />
               <div className="absolute bottom-4 right-4 flex gap-2">
@@ -292,13 +402,13 @@ export function StudyPage() {
             <div className="mt-4 flex gap-4 text-[11px] font-bold uppercase tracking-widest text-outline-variant">
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">mic</span>
-                Voice input
+                {t("study.chat.voiceInput")}
               </span>
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">
                   attach_file
                 </span>
-                Attach material
+                {t("study.chat.attachMaterial")}
               </span>
             </div>
           </footer>

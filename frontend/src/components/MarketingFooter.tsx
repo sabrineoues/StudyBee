@@ -1,10 +1,14 @@
+import { useTranslation } from "react-i18next";
+
 const footerLinks = [
-  { label: "Features", href: "/#features" },
-  { label: "About", href: "/#about" },
-  { label: "Contact", href: "mailto:studybee@mindworkers.tn" },
+  { key: "features", href: "/#features" },
+  { key: "about", href: "/#about" },
+  { key: "contact", href: "mailto:studybee@mindworkers.tn" },
 ] as const;
 
 export function MarketingFooter() {
+  const { t } = useTranslation();
+
   return (
     <div className="mt-auto">
       <div aria-hidden className="h-6 sm:h-8" />
@@ -17,10 +21,10 @@ export function MarketingFooter() {
           <div className="space-y-1">
             <h3 className="text-lg font-black tracking-tighter text-primary">StudyBee</h3>
             <p className="text-sm text-on-surface-variant">
-              Turning Study Time into Prime Time
+              {t("marketingFooter.tagline")}
             </p>
             <p className="text-xs italic text-on-surface-variant/80">
-              Learn lighter. Stay consistent.
+              {t("marketingFooter.subtagline")}
             </p>
           </div>
 
@@ -30,17 +34,17 @@ export function MarketingFooter() {
           >
             {footerLinks.map((item) => (
               <a
-                key={item.label}
+                key={item.key}
                 className="transition-colors hover:text-primary"
                 href={item.href}
               >
-                {item.label}
+                {t(`marketingFooter.${item.key}`)}
               </a>
             ))}
           </nav>
 
           <p className="text-[0.75rem] text-on-surface-variant opacity-60 md:text-right">
-            © 2026 StudyBee Systems. All rights reserved.
+            {t("marketingFooter.copyright")}
           </p>
         </div>
       </footer>

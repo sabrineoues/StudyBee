@@ -234,6 +234,8 @@ class ProfileAPIView(APIView):
             profile.parent_email = data["parent_email"]
         if "parent_phone" in data:
             profile.parent_phone = data["parent_phone"]
+        if "language" in data:
+            profile.language = data["language"]
         profile.save()
 
         out = StudentProfileMeSerializer({"user": user, "profile": profile}, context={"user": user, "request": request})

@@ -7,6 +7,36 @@ const REFRESH_TOKEN_KEY = "studybee_refresh_token";
 const USER_KEY = "studybee_user";
 const AUTH_CHANGED_EVENT = "studybee-auth-changed";
 
+let cachedUserRaw: string | null = null;
+let cachedUser: SignInResponse["user"] | null = null;
+
+function safeGetItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
 function notifyAuthChanged() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
@@ -25,7 +55,7 @@ if (!(axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__st
   (axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__studybeeAuthInterceptor = true;
   axios.interceptors.request.use((config) => {
     if (typeof window === "undefined") return config;
-    const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = safeGetItem(ACCESS_TOKEN_KEY);
     if (token) {
       config.headers = config.headers ?? {};
       (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
@@ -36,7 +66,7 @@ if (!(axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__st
 
 // Restore token on app load (best-effort)
 if (typeof window !== "undefined") {
-  const token = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+  const token = safeGetItem(ACCESS_TOKEN_KEY);
   if (token) setAxiosAuthToken(token);
 }
 
@@ -92,22 +122,29 @@ export const userService = {
   },
 
   getAccessToken: () => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    return safeGetItem(ACCESS_TOKEN_KEY);
   },
 
   isSignedIn: () => {
-    if (typeof window === "undefined") return false;
-    return Boolean(window.localStorage.getItem(ACCESS_TOKEN_KEY));
+    return Boolean(safeGetItem(ACCESS_TOKEN_KEY));
   },
 
   getUser: () => {
     if (typeof window === "undefined") return null;
-    const raw = window.localStorage.getItem(USER_KEY);
-    if (!raw) return null;
+    const raw = safeGetItem(USER_KEY);
+    if (raw === cachedUserRaw) return cachedUser;
+
+    cachedUserRaw = raw;
+    if (!raw) {
+      cachedUser = null;
+      return null;
+    }
+
     try {
-      return JSON.parse(raw) as SignInResponse["user"];
+      cachedUser = JSON.parse(raw) as SignInResponse["user"];
+      return cachedUser;
     } catch {
+      cachedUser = null;
       return null;
     }
   },
@@ -141,7 +178,7 @@ export const userService = {
 
     const me = response.data as SignInResponse["user"];
 
-    window.localStorage.setItem(USER_KEY, JSON.stringify(me));
+    safeSetItem(USER_KEY, JSON.stringify(me));
     notifyAuthChanged();
 
     return me;
@@ -159,12 +196,12 @@ export const userService = {
     const payload = response.data as SignInResponse;
 
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(ACCESS_TOKEN_KEY, payload.access);
-      window.localStorage.setItem(REFRESH_TOKEN_KEY, payload.refresh);
+      safeSetItem(ACCESS_TOKEN_KEY, payload.access);
+      safeSetItem(REFRESH_TOKEN_KEY, payload.refresh);
       if (payload.user) {
-        window.localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+        safeSetItem(USER_KEY, JSON.stringify(payload.user));
       } else {
-        window.localStorage.removeItem(USER_KEY);
+        safeRemoveItem(USER_KEY);
       }
     }
     setAxiosAuthToken(payload.access);
@@ -175,9 +212,9 @@ export const userService = {
 
   signOut: () => {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-      window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.localStorage.removeItem(USER_KEY);
+      safeRemoveItem(ACCESS_TOKEN_KEY);
+      safeRemoveItem(REFRESH_TOKEN_KEY);
+      safeRemoveItem(USER_KEY);
     }
     setAxiosAuthToken(null);
     notifyAuthChanged();

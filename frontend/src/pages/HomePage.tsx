@@ -5,6 +5,7 @@ import { AmbientOrbs } from "../components/AmbientOrbs";
 import { MarketingFooter } from "../components/MarketingFooter";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
+import { useTranslation } from "react-i18next";
 import {
   hoverLift,
   springSnappy,
@@ -19,65 +20,67 @@ const HERO_IMG =
 const ABOUT_IMG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDOkk_SLcvqbT-d2a66J_ObnfC3KwLVrGILU7lB6iOJlL_OxQotPXRK6iX1ELurAhKjTFi2tzbMHxNTg6rLqr_JDXy2AfLZQ2XHh9aEVKa2BcRPoo1Ikx0BsHAMiHuYHo5h4JDdaag2lTo9S__8gDh7LpMf5nzAomTMd4blXIcSRu6KePWJ873Elewe4EWnBcc48GK69PTG8W3H3guMzjNrw2e40R4j-kPM03t1MJiKVPica-FmwWSBbYhineUCW0x7pENTp-7rdYU";
 
-const moods = ["Motivated", "Calm", "Tired", "Stressed", "Happy"] as const;
+const moods = ["motivated", "calm", "tired", "stressed", "happy"] as const;
 
-const moodFeedback = {
-  Motivated: {
+type MoodKey = (typeof moods)[number];
+
+const moodFeedback: Record<
+  MoodKey,
+  {
+    emoji: string;
+    titleKey: string;
+    textKey: string;
+    classes: string;
+  }
+> = {
+  motivated: {
     emoji: "⚡",
-    title: "Strong focus",
-    text: "You’re ready to move. Keep the energy, but stay organized so it turns into real progress.",
+    titleKey: "home.mood.feedback.motivatedTitle",
+    textKey: "home.mood.feedback.motivatedText",
     classes: "from-amber-100 to-yellow-50 ring-amber-200/60 text-amber-800",
   },
-  Calm: {
+  calm: {
     emoji: "🌿",
-    title: "Steady pace",
-    text: "Perfect state for deep work. Keep your rhythm smooth and consistent.",
+    titleKey: "home.mood.feedback.calmTitle",
+    textKey: "home.mood.feedback.calmText",
     classes: "from-emerald-100 to-teal-50 ring-emerald-200/60 text-emerald-800",
   },
-  Tired: {
+  tired: {
     emoji: "☁️",
-    title: "Low battery",
-    text: "Take a short break, drink water, and restart gently. A lighter session is enough.",
+    titleKey: "home.mood.feedback.tiredTitle",
+    textKey: "home.mood.feedback.tiredText",
     classes: "from-sky-100 to-blue-50 ring-sky-200/60 text-sky-800",
   },
-  Stressed: {
+  stressed: {
     emoji: "🫶",
-    title: "Breathe first",
-    text: "One task at a time. Slow down the pressure and start with something small.",
+    titleKey: "home.mood.feedback.stressedTitle",
+    textKey: "home.mood.feedback.stressedText",
     classes: "from-rose-100 to-pink-50 ring-rose-200/60 text-rose-800",
   },
-  Happy: {
+  happy: {
     emoji: "✨",
-    title: "Good momentum",
-    text: "You’re in a great mood to learn. Use that energy for a focused session.",
+    titleKey: "home.mood.feedback.happyTitle",
+    textKey: "home.mood.feedback.happyText",
     classes: "from-fuchsia-100 to-pink-50 ring-fuchsia-200/60 text-fuchsia-800",
   },
-} as const;
+};
 
 const stats = [
-  { num: "5k+", lab: "Students supported" },
-  { num: "1M", lab: "Study hours guided" },
-  { num: "4.7/5", lab: "User rating" },
+  { num: "5k+", key: "studentsSupported" },
+  { num: "1M", key: "studyHoursGuided" },
+  { num: "4.7/5", key: "userRating" },
 ] as const;
 
 const pillars = [
-  {
-    title: "Study with clarity",
-    text: "A calm interface that helps you focus on what matters most.",
-  },
-  {
-    title: "Stay balanced",
-    text: "Adapt to your state of mind so learning feels less stressful.",
-  },
-  {
-    title: "Grow with confidence",
-    text: "Track progress and build momentum one session at a time.",
-  },
+  { titleKey: "home.about.pillars.clarityTitle", textKey: "home.about.pillars.clarityText" },
+  { titleKey: "home.about.pillars.balanceTitle", textKey: "home.about.pillars.balanceText" },
+  { titleKey: "home.about.pillars.confidenceTitle", textKey: "home.about.pillars.confidenceText" },
 ] as const;
 
 export function HomePage() {
   const shouldReduceMotion = useReducedMotion();
-  const [selectedMood, setSelectedMood] = useState<(typeof moods)[number] | null>(null);
+  const { t } = useTranslation();
+  const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null);
 
   const feedback = selectedMood ? moodFeedback[selectedMood] : null;
 
@@ -99,14 +102,14 @@ export function HomePage() {
                   variants={staggerItem}
                   className="font-label inline-block rounded-full bg-secondary-container px-4 py-1.5 text-[0.75rem] font-bold uppercase tracking-widest text-on-secondary-container shadow-sm shadow-secondary/20"
                 >
-                  A cozy study space
+                  {t("home.heroBadge")}
                 </motion.span>
 
                 <motion.h1
                   variants={staggerItem}
                   className="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight text-on-background sm:text-5xl lg:text-[3.5rem]"
                 >
-                  Study better, <br />
+                  {t("home.heroTitleLine1")} <br />
                   <motion.span
                     className="inline-block text-primary italic"
                     initial={shouldReduceMotion ? false : { opacity: 0, x: -12 }}
@@ -117,7 +120,7 @@ export function HomePage() {
                         : { delay: 0.35, duration: 0.6, ease: [0.22, 1, 0.36, 1] }
                     }
                   >
-                    feel lighter.
+                    {t("home.heroTitleEmphasis")}
                   </motion.span>
                 </motion.h1>
 
@@ -125,7 +128,7 @@ export function HomePage() {
                   variants={staggerItem}
                   className="max-w-md text-base leading-relaxed text-on-surface-variant sm:text-lg"
                 >
-                  StudyBee turns heavy study sessions into a softer, more motivating experience — designed to help you stay focused, calm, and consistent.
+                  {t("home.heroText")}
                 </motion.p>
 
                 <motion.div
@@ -137,7 +140,7 @@ export function HomePage() {
                       to="/sign-up"
                       className="btn-glow-hover inline-flex items-center justify-center rounded-full bg-gradient-to-r from-primary to-primary-container px-8 py-4 text-base font-bold text-white shadow-lg shadow-primary/25 sm:text-lg"
                     >
-                      Start Your Journey
+                      {t("home.ctaStart")}
                     </Link>
                   </motion.div>
 
@@ -148,7 +151,7 @@ export function HomePage() {
                     transition={springSnappy}
                     className="inline-flex items-center justify-center rounded-full bg-surface-container-highest px-8 py-4 text-base font-bold text-primary shadow-md shadow-primary/5 sm:text-lg"
                   >
-                    About StudyBee
+                      {t("home.ctaAbout")}
                   </motion.a>
                 </motion.div>
 
@@ -158,12 +161,12 @@ export function HomePage() {
                 >
                   {stats.map((item) => (
                     <div
-                      key={item.lab}
+                      key={item.key}
                       className="rounded-2xl border border-outline-variant/15 bg-surface-container-low px-5 py-4 shadow-sm"
                     >
                       <p className="text-2xl font-black text-primary">{item.num}</p>
                       <p className="mt-1 text-xs uppercase tracking-widest text-on-surface-variant">
-                        {item.lab}
+                        {t(`home.stats.${item.key}`)}
                       </p>
                     </div>
                   ))}
@@ -191,7 +194,7 @@ export function HomePage() {
                   transition={springSnappy}
                 >
                   <motion.img
-                    alt="Espace d’étude chaleureux"
+                    alt={t("home.heroImageAlt")}
                     className="h-full w-full object-cover"
                     src={HERO_IMG}
                     loading="eager"
@@ -215,11 +218,11 @@ export function HomePage() {
                       favorite
                     </span>
                     <p className="text-sm font-bold uppercase tracking-widest text-on-surface">
-                      Today’s vibe
+                      {t("home.todaysVibe")}
                     </p>
                   </div>
                   <p className="text-sm leading-snug text-on-surface-variant">
-                    You’re in a calm zone. It’s a great time for deep work, revision, or a fresh start.
+                    {t("home.todaysVibeText")}
                   </p>
                 </motion.div>
               </motion.div>
@@ -232,10 +235,10 @@ export function HomePage() {
                 <div className="card-shine relative z-10 h-full rounded-xl">
                   <div className="relative z-10 max-w-md space-y-4">
                     <h2 className="text-2xl font-bold tracking-tight text-on-background sm:text-3xl">
-                      Designed to keep you motivated
+                      {t("home.features.title")}
                     </h2>
                     <p className="leading-relaxed text-on-surface-variant">
-                      StudyBee combines calm visuals, gentle guidance, and adaptive energy to help you build a better study rhythm.
+                      {t("home.features.text")}
                     </p>
                   </div>
 
@@ -262,9 +265,9 @@ export function HomePage() {
                   menu_book
                 </motion.span>
                 <div>
-                  <h3 className="mb-2 text-xl font-bold">Smart Journaling</h3>
+                  <h3 className="mb-2 text-xl font-bold">{t("home.features.card1Title")}</h3>
                   <p className="text-sm text-on-surface-variant">
-                    Capture your thoughts, tasks, and progress in one peaceful space.
+                    {t("home.features.card1Text")}
                   </p>
                 </div>
               </Reveal>
@@ -278,9 +281,9 @@ export function HomePage() {
                   insights
                 </motion.span>
                 <div>
-                  <h3 className="mb-2 text-xl font-bold">Predictive Stats</h3>
+                  <h3 className="mb-2 text-xl font-bold">{t("home.features.card2Title")}</h3>
                   <p className="text-sm text-on-surface-variant">
-                    See your progress clearly and stay one step ahead before exams.
+                    {t("home.features.card2Text")}
                   </p>
                 </div>
               </Reveal>
@@ -295,7 +298,7 @@ export function HomePage() {
                 transition={springSnappy}
               >
                 <img
-                  alt="À propos de StudyBee"
+                  alt={t("home.about.imageAlt")}
                   className="aspect-[4/5] w-full object-cover shadow-lg"
                   src={ABOUT_IMG}
                   loading="lazy"
@@ -305,32 +308,32 @@ export function HomePage() {
 
               <div className="space-y-6">
                 <div className="inline-flex items-center rounded-full bg-secondary-container px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-on-secondary-container">
-                  About Us
+                  {t("home.about.badge")}
                 </div>
 
                 <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  A study app built with empathy
+                  {t("home.about.title")}
                 </h2>
 
                 <p className="text-base leading-relaxed text-on-surface-variant sm:text-lg">
-                  StudyBee was created for students who want to work hard without feeling overwhelmed. We believe that learning should feel supportive, human, and motivating.
+                  {t("home.about.p1")}
                 </p>
 
                 <p className="text-base leading-relaxed text-on-surface-variant sm:text-lg">
-                  Our mission is simple: help you stay focused, understand your pace, and make every study session feel lighter and more rewarding.
+                  {t("home.about.p2")}
                 </p>
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   {pillars.map((item) => (
                     <div
-                      key={item.title}
+                      key={item.titleKey}
                       className="rounded-2xl bg-surface-container-high p-5 shadow-sm ring-1 ring-outline-variant/10"
                     >
                       <h3 className="mb-2 text-sm font-bold text-on-background">
-                        {item.title}
+                        {t(item.titleKey)}
                       </h3>
                       <p className="text-sm leading-relaxed text-on-surface-variant">
-                        {item.text}
+                        {t(item.textKey)}
                       </p>
                     </div>
                   ))}
@@ -342,10 +345,10 @@ export function HomePage() {
           <section className="px-4 py-20 sm:px-6 lg:px-8">
             <Reveal className="mx-auto max-w-7xl rounded-[2rem] bg-tertiary-container/10 p-8 text-center ring-1 ring-tertiary-container/15 sm:p-12">
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                How do you feel today?
+                {t("home.mood.title")}
               </h2>
               <p className="mx-auto mt-4 max-w-2xl text-sm text-on-surface-variant sm:text-base">
-                Choose your current mood and let StudyBee adapt the experience to match your energy.
+                {t("home.mood.subtitle")}
               </p>
 
               <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -372,7 +375,7 @@ export function HomePage() {
                       selectedMood === m ? "bg-primary text-white ring-primary/30" : ""
                     }`}
                   >
-                    {m}
+                    {t(`home.mood.moods.${m}`)}
                   </motion.button>
                 ))}
               </div>
@@ -404,13 +407,15 @@ export function HomePage() {
                       </motion.span>
                       <div className="text-left">
                         <h3 className={`text-lg font-bold ${feedback.classes.split(" ").at(-1)}`}>
-                          {feedback.title}
+                          {t(feedback.titleKey)}
                         </h3>
-                        <p className="text-sm text-slate-600">{selectedMood} mode</p>
+                        <p className="text-sm text-slate-600">
+                          {selectedMood ? t(`home.mood.moods.${selectedMood}`) : ""} {t("home.mood.modeSuffix")}
+                        </p>
                       </div>
                     </div>
                     <p className="text-sm leading-relaxed text-slate-700">
-                      {feedback.text}
+                      {t(feedback.textKey)}
                     </p>
                   </div>
                 ) : null}

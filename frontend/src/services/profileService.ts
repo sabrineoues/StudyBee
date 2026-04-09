@@ -12,8 +12,12 @@ function notifyProfileChanged() {
 
 function setCachedAvatarUrl(url: string | null | undefined) {
   if (typeof window === "undefined") return;
-  if (url) window.localStorage.setItem(PROFILE_AVATAR_KEY, url);
-  else window.localStorage.removeItem(PROFILE_AVATAR_KEY);
+  try {
+    if (url) window.localStorage.setItem(PROFILE_AVATAR_KEY, url);
+    else window.localStorage.removeItem(PROFILE_AVATAR_KEY);
+  } catch {
+    // ignore
+  }
   notifyProfileChanged();
 }
 
@@ -28,6 +32,7 @@ export type StudentProfileMe = {
   speciality: string;
   parent_email: string;
   parent_phone: string;
+  language?: "en" | "fr";
 };
 
 export type StudentProfileMeUpdate = Partial<{
@@ -40,6 +45,7 @@ export type StudentProfileMeUpdate = Partial<{
   speciality: string;
   parent_email: string;
   parent_phone: string;
+  language: "en" | "fr";
 }>;
 
 export const profileService = {
@@ -58,7 +64,11 @@ export const profileService = {
 
   getCachedAvatarUrl: () => {
     if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(PROFILE_AVATAR_KEY);
+    try {
+      return window.localStorage.getItem(PROFILE_AVATAR_KEY);
+    } catch {
+      return null;
+    }
   },
 
   clearCachedAvatarUrl: () => {

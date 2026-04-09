@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { adminService, type AdminStats } from "../services/adminService";
 
 export function AdminDashboardPage() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,9 +19,9 @@ export function AdminDashboardPage() {
         if (!alive) return;
         const maybeAny = err as { response?: { status?: number } };
         const status = maybeAny?.response?.status;
-        if (status === 401) setError("Session expired. Please sign in again.");
-        else if (status === 403) setError("Access denied. Your account is not staff.");
-        else setError("Failed to load admin stats.");
+        if (status === 401) setError(t("admin.errors.sessionExpired"));
+        else if (status === 403) setError(t("admin.errors.accessDeniedNotStaff"));
+        else setError(t("admin.errors.failedToLoadAdminStats"));
       }
     })();
 
@@ -39,12 +41,12 @@ export function AdminDashboardPage() {
 
         <header className="mb-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant ring-1 ring-outline-variant/10">
-            Dashboard
+            {t("admin.common.dashboardChip")}
           </div>
           <h1 className="mt-4 font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
-            Admin
+            {t("admin.dashboard.title")}
           </h1>
-          <p className="mt-2 max-w-2xl text-on-surface-variant">Overview of your platform.</p>
+          <p className="mt-2 max-w-2xl text-on-surface-variant">{t("admin.common.overview")}</p>
         </header>
 
         {error ? (
@@ -57,10 +59,10 @@ export function AdminDashboardPage() {
           <div className="rounded-3xl bg-surface-container-low/90 p-6 shadow-sm ring-1 ring-outline-variant/12 backdrop-blur-md">
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Total users
+                {t("admin.dashboard.totalUsers")}
               </p>
               <div className="rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold text-on-surface-variant ring-1 ring-outline-variant/10">
-                All accounts
+                {t("admin.dashboard.allAccounts")}
               </div>
             </div>
             <div className="mt-4 flex items-end justify-between gap-6">
@@ -76,10 +78,10 @@ export function AdminDashboardPage() {
           <div className="rounded-3xl bg-surface-container-low/90 p-6 shadow-sm ring-1 ring-outline-variant/12 backdrop-blur-md">
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Staff users
+                {t("admin.dashboard.staffUsers")}
               </p>
               <div className="rounded-full bg-surface-container-highest/60 px-4 py-2 text-xs font-bold text-on-surface-variant ring-1 ring-outline-variant/10">
-                Admin access
+                {t("admin.dashboard.adminAccess")}
               </div>
             </div>
             <div className="mt-4 flex items-end justify-between gap-6">

@@ -1,11 +1,105 @@
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../components/Reveal";
 import { MarketingFooter } from "../components/MarketingFooter";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { springSnappy } from "../motion/presets";
+import { Trans, useTranslation } from "react-i18next";
+import { userService } from "../services/userService";
+import { profileService } from "../services/profileService";
+import { visionService } from "../services/visionService";
+
+type DashboardMood = "motivated" | "tired" | "stressed";
+
+const DASHBOARD_MOOD_KEY = "studybee_dashboard_mood";
+
+function normalizeMood(value: unknown): DashboardMood | null {
+  return value === "tired" || value === "stressed" || value === "motivated" ? value : null;
+}
+
+function loadStoredMood(): DashboardMood | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return normalizeMood(window.localStorage.getItem(DASHBOARD_MOOD_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function storeMood(mood: DashboardMood): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DASHBOARD_MOOD_KEY, mood);
+  } catch {
+    // ignore
+  }
+}
 
 export function DashboardPage() {
   const reduceMotion = useReducedMotion();
+  const { t } = useTranslation();
+
+  const authUser = useSyncExternalStore(userService.subscribeAuth, userService.getUser, () => null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const displayName = useMemo(() => {
+    const fromProfile = (profileName || "").trim();
+    if (fromProfile) return fromProfile;
+
+    const first = (authUser?.first_name || "").trim();
+    if (first) return first;
+
+    const username = (authUser?.username || "").trim();
+    return username || "";
+  }, [authUser?.first_name, authUser?.username, profileName]);
+
+  const [mood, setMood] = useState<DashboardMood>(() => loadStoredMood() ?? "motivated");
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      if (!userService.isSignedIn()) return;
+      try {
+        const me = await profileService.getMe();
+        if (!alive) return;
+        const full = [me.first_name, me.last_name].filter(Boolean).join(" ").trim();
+        if (full) setProfileName(full);
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const stored = loadStoredMood();
+    if (stored) return;
+
+    (async () => {
+      try {
+        const status = await visionService.getFatigueStatus();
+        if (!alive) return;
+        if (status.tired) setMood("tired");
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const moodLabel =
+    mood === "tired"
+      ? t("dashboard.moodTired")
+      : mood === "stressed"
+        ? t("dashboard.moodStressed")
+        : t("dashboard.moodMotivated");
 
   return (
     <StudyBeeShell>
@@ -47,30 +141,38 @@ export function DashboardPage() {
         >
           <div className="max-w-2xl">
             <h1 className="font-headline mb-4 text-5xl font-extrabold tracking-tight text-on-surface md:text-6xl">
-              Welcome back, <span className="text-primary">Alex</span>.
+              <Trans
+                i18nKey="dashboard.welcomeBack"
+                values={{ name: displayName || "" }}
+                components={{ highlight: <span className="text-primary" /> }}
+              />
             </h1>
             <p className="font-body text-lg leading-relaxed text-on-surface-variant">
-              Your current vibe feels{" "}
+              {t("dashboard.currentVibePrefix")} {" "}
               <span className="rounded-full bg-tertiary-container px-3 py-1 font-bold text-on-tertiary-container">
-                Focused
+                {moodLabel}
               </span>
-              . You&apos;ve conquered 85% of your weekly goals.
+              . {t("dashboard.weeklyGoals", { percent: 85 })}
             </p>
           </div>
           <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
             {[
-              { icon: "mood", label: "Motivated" },
-              { icon: "sentiment_neutral", label: "Tired" },
-              { icon: "psychology", label: "Stressed" },
-            ].map((b, i) => (
+              { mood: "motivated" as const, icon: "mood", label: t("dashboard.moodMotivated") },
+              { mood: "tired" as const, icon: "sentiment_neutral", label: t("dashboard.moodTired") },
+              { mood: "stressed" as const, icon: "psychology", label: t("dashboard.moodStressed") },
+            ].map((b) => (
               <motion.button
                 key={b.label}
                 type="button"
+                onClick={() => {
+                  setMood(b.mood);
+                  storeMood(b.mood);
+                }}
                 whileHover={{ scale: 1.06, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={springSnappy}
                 className={`flex items-center gap-2 rounded-full px-6 py-3 font-label text-[10px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-transparent transition-shadow hover:shadow-md ${
-                  i === 0
+                  b.mood === mood
                     ? "bg-surface-container-highest text-on-surface ring-outline-variant/10"
                     : "bg-surface-container-low text-on-surface opacity-60 hover:opacity-90"
                 }`}
@@ -103,15 +205,14 @@ export function DashboardPage() {
                     local_fire_department
                   </span>
                   <span className="font-label text-xs uppercase tracking-widest text-white/80">
-                    Active Streak
+                    {t("dashboard.activeStreak")}
                   </span>
                 </div>
                 <div className="mb-2 font-headline text-7xl font-black">
-                  14 Days
+                  {t("dashboard.days", { count: 14 })}
                 </div>
                 <p className="font-body max-w-xs text-white/90">
-                  You&apos;re in the top 5% of students this week. Keep the
-                  momentum!
+                  {t("dashboard.topStudents")}
                 </p>
               </div>
               <div className="mt-8 flex flex-wrap gap-2">
@@ -119,13 +220,13 @@ export function DashboardPage() {
                   type="button"
                   className="rounded-full bg-white px-8 py-3 text-sm font-bold text-primary transition-all hover:scale-105 active:scale-95"
                 >
-                  Continue Study
+                  {t("dashboard.continueStudy")}
                 </button>
                 <button
                   type="button"
                   className="rounded-full bg-white/20 px-8 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:scale-105 active:scale-95"
                 >
-                  View Milestones
+                  {t("dashboard.viewMilestones")}
                 </button>
               </div>
             </div>
@@ -155,13 +256,13 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined text-tertiary">
                   bubble_chart
                 </span>
-                Aura Trends
+                {t("dashboard.auraTrends")}
               </h3>
               <div className="space-y-4">
                 {[
-                  { label: "Calm", w: "70%", c: "bg-primary-container" },
-                  { label: "Focus", w: "85%", c: "bg-primary" },
-                  { label: "Anxiety", w: "15%", c: "bg-tertiary-container" },
+                  { label: t("dashboard.calm"), w: "70%", c: "bg-primary-container" },
+                  { label: t("dashboard.focus"), w: "85%", c: "bg-primary" },
+                  { label: t("dashboard.anxiety"), w: "15%", c: "bg-tertiary-container" },
                 ].map((r) => (
                   <div
                     key={r.label}
@@ -182,15 +283,14 @@ export function DashboardPage() {
             </div>
             <div className="mt-8 rounded-lg border-l-4 border-primary bg-surface p-4">
               <p className="font-body text-xs italic text-on-surface-variant">
-                &quot;Your focus peaks between 10 AM and 1 PM. Plan your
-                heaviest tasks then.&quot;
+                {t("dashboard.auraQuote")}
               </p>
             </div>
           </Reveal>
 
           <Reveal className="rounded-xl bg-surface-container-high p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-4" delay={0.1}>
             <div className="mb-8 flex items-center justify-between">
-              <h3 className="font-headline text-xl font-bold">Performance</h3>
+              <h3 className="font-headline text-xl font-bold">{t("dashboard.performance")}</h3>
               <span className="material-symbols-outlined text-primary">
                 analytics
               </span>
@@ -206,13 +306,13 @@ export function DashboardPage() {
               <div>
                 <div className="text-2xl font-bold">92%</div>
                 <div className="font-label text-[10px] uppercase tracking-wider opacity-60">
-                  Accuracy
+                  {t("dashboard.accuracy")}
                 </div>
               </div>
               <div>
                 <div className="text-2xl font-bold">+12%</div>
                 <div className="font-label text-[10px] uppercase tracking-wider opacity-60">
-                  Improvement
+                  {t("dashboard.improvement")}
                 </div>
               </div>
             </div>
@@ -224,13 +324,13 @@ export function DashboardPage() {
           >
             <div className="mb-6 flex items-center justify-between">
               <h3 className="font-headline text-xl font-bold">
-                Recent Flow Sessions
+                {t("dashboard.recentFlowSessions")}
               </h3>
               <button
                 type="button"
                 className="text-sm font-bold text-primary hover:underline"
               >
-                View All
+                {t("dashboard.viewAll")}
               </button>
             </div>
             <div className="space-y-3">
@@ -312,15 +412,14 @@ export function DashboardPage() {
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-black">24.5</span>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                  Hours
+                  {t("dashboard.hours")}
                 </span>
               </div>
             </div>
             <div>
-              <h3 className="font-headline mb-2 text-lg font-bold">Total Time</h3>
+              <h3 className="font-headline mb-2 text-lg font-bold">{t("dashboard.totalTime")}</h3>
               <p className="font-body text-sm text-on-surface-variant">
-                This week&apos;s investment in yourself. You are 2.5 hours away
-                from your goal!
+                {t("dashboard.totalTimeText")}
               </p>
             </div>
           </Reveal>
@@ -341,9 +440,9 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined">edit_note</span>
               </div>
               <div>
-                <h4 className="font-bold">Log Journal Entry</h4>
+                <h4 className="font-bold">{t("dashboard.logJournalEntry")}</h4>
                 <p className="text-xs text-on-surface-variant">
-                  Reflect on today&apos;s learning journey
+                  {t("dashboard.logJournalText")}
                 </p>
               </div>
             </motion.div>
@@ -356,9 +455,9 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined">lightbulb</span>
               </div>
               <div>
-                <h4 className="font-bold">Daily Study Tip</h4>
+                <h4 className="font-bold">{t("dashboard.dailyStudyTip")}</h4>
                 <p className="text-xs text-on-surface-variant">
-                  The Feynman Technique: Simplify it.
+                  {t("dashboard.dailyStudyTipText")}
                 </p>
               </div>
             </motion.div>

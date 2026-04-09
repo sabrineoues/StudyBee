@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { profileService } from "../../services/profileService";
 import { userService } from "../../services/userService";
@@ -34,6 +35,7 @@ function capitalizeFirst(value: string): string {
 
 export function AdminLayout() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [user, setUser] = useState(() => userService.getUser());
   const avatarUrl = useSyncExternalStore(
@@ -83,13 +85,13 @@ export function AdminLayout() {
             <div className="mb-5">
               <div className="font-headline text-xl font-black tracking-tighter text-primary">StudyBee</div>
               <div className="mt-1 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                Admin
+                {t("admin.layout.admin")}
               </div>
             </div>
 
             <nav className="flex flex-col gap-2">
-              <SideLink to="/admin" label="Stats" end />
-              <SideLink to="/admin/users" label="User management" />
+              <SideLink to="/admin" label={t("admin.layout.stats")} end />
+              <SideLink to="/admin/users" label={t("admin.layout.userManagement")} />
 
               <div className="mt-3 border-t border-outline-variant/15 pt-3">
                 <button
@@ -103,7 +105,7 @@ export function AdminLayout() {
                     "text-on-surface-variant hover:bg-surface-container-highest/50 hover:text-on-surface",
                   ].join(" ")}
                 >
-                  Sign out
+                  {t("admin.layout.signOut")}
                 </button>
               </div>
             </nav>
@@ -115,7 +117,7 @@ export function AdminLayout() {
             <div className="flex items-center gap-3 rounded-full bg-surface-container-low/90 px-4 py-2 shadow-sm ring-1 ring-outline-variant/12 backdrop-blur-md">
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-surface-container-highest/60 ring-1 ring-outline-variant/12">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Admin" className="h-full w-full object-cover" />
+                  <img src={avatarUrl} alt={t("admin.layout.adminAlt")} className="h-full w-full object-cover" />
                 ) : (
                   <span className="font-headline text-sm font-black tracking-tight text-primary">
                     {initials}
@@ -127,7 +129,7 @@ export function AdminLayout() {
                   {displayName}
                 </div>
                 <div className="truncate text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Admin
+                  {t("admin.layout.admin")}
                 </div>
               </div>
             </div>

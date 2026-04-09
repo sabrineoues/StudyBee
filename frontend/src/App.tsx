@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -12,10 +12,13 @@ import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminStatsPage } from './pages/admin/AdminStatsPage';
-import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage.tsx';
 import { AdminUserFormPage } from './pages/admin/AdminUserFormPage';
 import { TopNavbar } from './components/TopNavbar';
 import { userService } from './services/userService';
+import { profileService } from './services/profileService';
+import i18n from './i18n';
+import { getStoredLanguage, normalizeLanguage, storeLanguage } from './i18n/language';
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
   return userService.isSignedIn() ? children : <Navigate to="/sign-in" replace />;
@@ -97,6 +100,56 @@ function RequireAdmin({ children }: { children: React.ReactElement }) {
 function AppInner() {
   const location = useLocation();
   const isAdminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+
+  const isSignedIn = useSyncExternalStore(
+    userService.subscribeAuth,
+    userService.isSignedIn,
+    () => false
+  );
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      if (!isSignedIn) {
+        const stored = getStoredLanguage();
+        if (stored) await i18n.changeLanguage(stored);
+        return;
+      }
+
+      try {
+        const stored = getStoredLanguage();
+        if (stored) {
+          await i18n.changeLanguage(stored);
+          storeLanguage(stored);
+        }
+
+        const me = await profileService.getMe();
+        if (!alive) return;
+
+        const profileLang = normalizeLanguage(me.language);
+        const desired = stored ?? profileLang;
+
+        await i18n.changeLanguage(desired);
+        storeLanguage(desired);
+
+        if (stored && profileLang !== stored) {
+          // Best-effort: keep server profile in sync with guest-selected language.
+          try {
+            await profileService.updateMe({ language: stored });
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // Best-effort: keep default language.
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isSignedIn]);
 
   return (
     <>

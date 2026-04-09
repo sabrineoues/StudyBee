@@ -1,8 +1,11 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { MarketingFooter } from "../components/MarketingFooter";
 
 export function JournalPage() {
+  const { t } = useTranslation();
+
   return (
     <div className="flex min-h-screen flex-col bg-surface pb-32 text-on-surface md:pb-0">
       <main className="mx-auto max-w-5xl px-6 pt-24">
@@ -13,14 +16,13 @@ export function JournalPage() {
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
         >
           <span className="label-sm text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-            Daily Journal • Oct 24
+            {t("journal.headerKicker")}
           </span>
           <h1 className="text-5xl font-extrabold tracking-tighter text-primary md:text-6xl">
-            Be gentle with yourself today.
+            {t("journal.title")}
           </h1>
           <p className="max-w-2xl text-lg leading-relaxed text-on-surface-variant">
-            It&apos;s okay to feel quiet. This space is here for whatever
-            thoughts need to rest on the page.
+            {t("journal.subtitle")}
           </p>
         </motion.header>
 
@@ -29,10 +31,10 @@ export function JournalPage() {
             <div className="relative z-10">
               <div className="mb-8 flex items-center justify-between">
                 <h2 className="text-xl font-bold text-primary">
-                 How do you feel?
+                  {t("journal.howDoYouFeel")}
                 </h2>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Emotional Check-in
+                  {t("journal.emotionalCheckIn")}
                 </span>
               </div>
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -55,7 +57,7 @@ export function JournalPage() {
                     sentiment_dissatisfied
                   </span>
                   <span className="mt-1 text-[10px] font-bold text-primary">
-                    SAD
+                    {t("journal.sad")}
                   </span>
                 </button>
                 <button
@@ -82,15 +84,15 @@ export function JournalPage() {
           <section className="relative overflow-hidden rounded-xl bg-surface-container-low p-8 md:col-span-4">
             <div className="relative z-10 flex h-full flex-col">
               <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-primary">Energy Level</h2>
+                <h2 className="text-xl font-bold text-primary">{t("journal.energyLevel")}</h2>
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Vitality
+                  {t("journal.vitality")}
                 </span>
               </div>
               <div className="flex flex-grow flex-col justify-center gap-6">
                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                  <span>Low</span>
-                  <span>High</span>
+                  <span>{t("journal.low")}</span>
+                  <span>{t("journal.high")}</span>
                 </div>
                 <div className="relative py-4">
                   <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-surface-variant" />
@@ -113,33 +115,32 @@ export function JournalPage() {
                 <div className="flex-1 space-y-6">
                   <h3 className="flex items-center gap-3 text-2xl font-bold text-primary">
                     <span className="material-symbols-outlined">edit_note</span>
-                    Dear Sanctuary...
+                    {t("journal.dearSanctuary")}
                   </h3>
                   <textarea
                     className="min-h-[300px] w-full border-none bg-transparent text-lg italic leading-relaxed text-on-surface placeholder:text-outline-variant focus:ring-0"
-                    placeholder="Start typing here. There's no rush, no judgment."
+                    placeholder={t("journal.entryPlaceholder")}
                   />
                 </div>
                 <div className="space-y-8 md:w-64">
                   <div>
                     <h4 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                      Prompt of the hour
+                      {t("journal.promptOfTheHour")}
                     </h4>
                     <p className="text-sm italic leading-relaxed text-secondary">
-                      &quot;What does safety feel like in your body right
-                      now?&quot;
+                      {t("journal.promptText")}
                     </p>
                   </div>
                   <div className="border-t border-outline-variant/15 pt-6">
                     <h4 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                      Atmosphere
+                      {t("journal.atmosphere")}
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full bg-secondary-container px-3 py-1 text-[10px] font-bold text-on-secondary-container">
-                        Rainy Day Lo-fi
+                        {t("journal.atmosphereTag1")}
                       </span>
                       <span className="rounded-full bg-surface-container px-3 py-1 text-[10px] font-bold text-on-surface-variant">
-                        Rainfall
+                        {t("journal.atmosphereTag2")}
                       </span>
                     </div>
                   </div>
@@ -157,11 +158,11 @@ export function JournalPage() {
               </div>
               <div className="w-full flex-grow">
                 <h3 className="mb-2 text-lg font-bold text-primary">
-                  What would you like tomorrow to bring you?
+                  {t("journal.tomorrowQuestion")}
                 </h3>
                 <input
                   type="text"
-                  placeholder="A moment of peace, a productive start..."
+                  placeholder={t("journal.tomorrowPlaceholder")}
                   className="w-full rounded-lg border-none bg-surface-container-lowest px-4 py-3 italic text-on-surface placeholder:text-outline-variant focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -170,7 +171,7 @@ export function JournalPage() {
 
           <section className="md:col-span-12">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-primary">Gentle Habits</h2>
+              <h2 className="text-xl font-bold text-primary">{t("journal.gentleHabits")}</h2>
               <span className="material-symbols-outlined text-on-surface-variant">
                 more_horiz
               </span>
@@ -189,13 +190,13 @@ export function JournalPage() {
                   </button>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary">Hydration</p>
+                  <p className="text-sm font-bold text-primary">{t("journal.hydration")}</p>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
                       3
                     </span>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline-variant">
-                      of 8 glasses
+                      {t("journal.ofGlasses", { total: 8 })}
                     </span>
                   </div>
                 </div>
@@ -217,9 +218,9 @@ export function JournalPage() {
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary">Meditation</p>
+                  <p className="text-sm font-bold text-primary">{t("journal.meditation")}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                    Completed
+                    {t("journal.completed")}
                   </p>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-variant">
@@ -233,11 +234,11 @@ export function JournalPage() {
                       blind
                     </span>
                   </div>
-                  <button type="button" className="text-[10px] font-bold uppercase text-primary hover:underline">Log</button>
+                  <button type="button" className="text-[10px] font-bold uppercase text-primary hover:underline">{t("journal.log")}</button>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary">Daily Walk</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Not started</p>
+                  <p className="text-sm font-bold text-primary">{t("journal.dailyWalk")}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t("journal.notStarted")}</p>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-variant">
                   <div className="h-full w-0 bg-primary" />
@@ -253,8 +254,8 @@ export function JournalPage() {
                   <input type="checkbox" className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-primary">Rest Early</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">10:00 PM Goal</p>
+                  <p className="text-sm font-bold text-primary">{t("journal.restEarly")}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t("journal.restEarlyGoal")}</p>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-variant">
                   <div className="h-full w-1/2 bg-primary" />
@@ -270,22 +271,22 @@ export function JournalPage() {
       <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around rounded-t-xl bg-background/60 px-4 pb-8 pt-4 backdrop-blur-2xl md:hidden">
         <Link to="/" className="flex flex-col items-center justify-center px-4 py-2 text-on-surface-variant opacity-80 transition-opacity hover:opacity-100 dark:text-inverse-on-surface">
           <span className="material-symbols-outlined">home</span>
-          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">Home</span>
+          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">{t("nav.home")}</span>
         </Link>
         <Link
           to="/journal"
           className="mb-2 flex scale-110 flex-col items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-container p-3 text-white shadow-lg transition-all duration-300"
         >
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>edit_note</span>
-          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">Journal</span>
+          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">{t("nav.journal")}</span>
         </Link>
         <Link to="/dashboard" className="flex flex-col items-center justify-center px-4 py-2 text-on-surface-variant opacity-80 transition-opacity dark:text-inverse-on-surface">
           <span className="material-symbols-outlined">dashboard</span>
-          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">Dash</span>
+          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">{t("journal.mobileDash")}</span>
         </Link>
         <Link to="/sign-in" className="flex flex-col items-center justify-center px-4 py-2 text-on-surface-variant opacity-80 dark:text-inverse-on-surface">
           <span className="material-symbols-outlined">person</span>
-          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">Profile</span>
+          <span className="mt-1 font-headline text-[10px] font-bold uppercase tracking-widest">{t("nav.profile")}</span>
         </Link>
       </nav>
     </div>
