@@ -172,12 +172,12 @@ export function SignInPage() {
                     >
                       {t("signIn.passwordLabel")}
                     </label>
-                    <a
-                      href="#"
+                    <Link
+                      to="/reset-password"
                       className="text-xs font-semibold text-primary hover:underline"
                     >
                       {t("signIn.forgot")}
-                    </a>
+                    </Link>
                   </div>
                   <div className="relative">
                     <input

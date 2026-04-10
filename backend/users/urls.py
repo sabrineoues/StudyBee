@@ -5,6 +5,8 @@ from .views import (
     AdminUserDetailAPIView,
     AdminUsersAPIView,
     MeAPIView,
+    PasswordResetConfirmAPIView,
+    PasswordResetRequestAPIView,
     ProfileAPIView,
     ProfileAvatarAPIView,
     StudentSignInAPIView,
@@ -14,6 +16,8 @@ from .views import (
 urlpatterns = [
     path('sign-up/', StudentSignUpAPIView.as_view(), name='api_sign_up'),
     path('sign-in/', StudentSignInAPIView.as_view(), name='api_sign_in'),
+    path('password-reset/', PasswordResetRequestAPIView.as_view(), name='api_password_reset'),
+    path('password-reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='api_password_reset_confirm'),
     path('me/', MeAPIView.as_view(), name='api_me'),
     path('profile/', ProfileAPIView.as_view(), name='api_profile'),
     path('profile/avatar/', ProfileAvatarAPIView.as_view(), name='api_profile_avatar'),

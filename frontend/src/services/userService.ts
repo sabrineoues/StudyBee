@@ -106,6 +106,18 @@ export interface SignInResponse {
   };
 }
 
+export interface PasswordResetRequestResponse {
+  detail?: string;
+  debug_reset_url?: string;
+}
+
+export interface PasswordResetConfirmData {
+  uidb64: string;
+  token: string;
+  new_password: string;
+  new_password_confirm: string;
+}
+
 export const userService = {
   subscribeAuth: (listener: () => void) => {
     if (typeof window === "undefined") return () => {};
@@ -188,6 +200,18 @@ export const userService = {
     const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
     const response = await axios.post(`${baseUrl}sign-up/`, data);
     return response.data;
+  },
+
+  requestPasswordReset: async (email: string): Promise<PasswordResetRequestResponse> => {
+    const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+    const response = await axios.post(`${baseUrl}password-reset/`, { email });
+    return response.data as PasswordResetRequestResponse;
+  },
+
+  confirmPasswordReset: async (data: PasswordResetConfirmData): Promise<{ detail?: string }> => {
+    const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+    const response = await axios.post(`${baseUrl}password-reset/confirm/`, data);
+    return response.data as { detail?: string };
   },
 
   signIn: async (data: SignInData): Promise<SignInResponse> => {

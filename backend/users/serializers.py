@@ -3,6 +3,10 @@ from datetime import date
 from secrets import token_hex
 
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.utils.text import slugify
 from rest_framework import serializers
 
@@ -443,3 +447,39 @@ class StudentProfileMeSerializer(serializers.Serializer):
         if phone and not self.PHONE_REGEX.match(phone):
             raise serializers.ValidationError("Phone must be in international format (e.g. +216XXXXXXXX)")
         return phone
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    new_password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs.get("new_password") != attrs.get("new_password_confirm"):
+            raise serializers.ValidationError({"new_password_confirm": "Passwords do not match"})
+
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs.get("uidb64") or ""))
+            user = User.objects.get(pk=uid)
+        except Exception:
+            raise serializers.ValidationError({"uidb64": "Invalid link"})
+
+        token = attrs.get("token") or ""
+        if not default_token_generator.check_token(user, token):
+            raise serializers.ValidationError({"token": "Invalid or expired token"})
+
+        validate_password(attrs.get("new_password") or "", user=user)
+
+        attrs["user"] = user
+        return attrs
+
+    def save(self, **kwargs):
+        user: User = self.validated_data["user"]
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user

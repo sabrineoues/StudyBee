@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -134,6 +135,31 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Email (password reset, notifications)
+# In development we default to console backend (prints emails to terminal).
+EMAIL_BACKEND = os.getenv(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+
+# SendGrid (SMTP) defaults: host smtp.sendgrid.net + username 'apikey'.
+# Provide DJANGO_EMAIL_HOST_PASSWORD with your SendGrid API key.
+_email_backend_is_smtp = EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST", "smtp.sendgrid.net" if _email_backend_is_smtp else "")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS", "1") == "1"
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "apikey" if _email_backend_is_smtp else "")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL", "StudyBee <no-reply@studybee.local>")
+
+# Frontend URL used for links in emails
+FRONTEND_URL = os.getenv("STUDYBEE_FRONTEND_URL", "http://localhost:5173")
+
+# Password reset token validity (seconds)
+PASSWORD_RESET_TIMEOUT = int(os.getenv("DJANGO_PASSWORD_RESET_TIMEOUT", str(60 * 60 * 24)))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

@@ -10,6 +10,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { TipsPage } from './pages/TipsPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminStatsPage } from './pages/admin/AdminStatsPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage.tsx';
@@ -217,6 +218,15 @@ function AppInner() {
           element={
             <RequireGuest>
               <SignUpPage />
+            </RequireGuest>
+          }
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            <RequireGuest>
+              <ResetPasswordPage />
             </RequireGuest>
           }
         />
