@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.core.exceptions import FieldDoesNotExist
 from django.core.mail import send_mail
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
@@ -300,11 +301,16 @@ class PasswordResetRequestAPIView(APIView):
             token = default_token_generator.make_token(user)
             reset_url = _build_password_reset_url(uidb64=uidb64, token=token)
 
-            profile_lang = (
-                StudentProfile.objects.filter(user=user).values_list("language", flat=True).first()
-                if reset_url
-                else None
-            )
+            profile_lang = None
+            if reset_url:
+                try:
+                    StudentProfile._meta.get_field("language")
+                except FieldDoesNotExist:
+                    profile_lang = None
+                else:
+                    profile_lang = (
+                        StudentProfile.objects.filter(user=user).values_list("language", flat=True).first()
+                    )
             subject, message = _compose_password_reset_email(reset_url=reset_url or "", language=profile_lang)
 
             try:
