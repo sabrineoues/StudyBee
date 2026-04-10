@@ -1,5 +1,9 @@
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { profileService } from "../services/profileService";
 import { userService } from "../services/userService";
+import { useTranslation } from "react-i18next";
+import { normalizeLanguage, storeLanguage } from "../i18n/language.ts";
 
 const linkBase =
   "font-headline font-semibold text-sm tracking-tight transition-all duration-200 hover:scale-105";
@@ -26,9 +30,41 @@ function NavItem({ to, label }: { to: string; label: string }) {
 
 export function TopNavbarSignIn() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+
+  const current = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const next = current === "en" ? "fr" : "en";
+
+  const avatarUrl = useSyncExternalStore(
+    profileService.subscribeProfile,
+    profileService.getCachedAvatarUrl,
+    () => null
+  );
+
+  const [user, setUser] = useState(() => userService.getUser());
+
+  useEffect(() => {
+    return userService.subscribeAuth(() => {
+      setUser(userService.getUser());
+    });
+  }, []);
+
+  const profileInitial = useMemo(() => {
+    const first = (user?.first_name ?? "").trim();
+    if (first) return first.charAt(0).toLocaleUpperCase();
+    const fallback = (user?.username ?? "").trim();
+    if (fallback) return fallback.charAt(0).toLocaleUpperCase();
+    return "";
+  }, [user?.first_name, user?.username]);
+
+  useEffect(() => {
+    if (avatarUrl) return;
+    void profileService.getMe();
+  }, [avatarUrl]);
 
   function onSignOut() {
     userService.signOut();
+    profileService.clearCachedAvatarUrl();
     navigate("/", { replace: true });
   }
 
@@ -44,12 +80,12 @@ export function TopNavbarSignIn() {
         </NavLink>
 
         <div className="hidden items-center gap-8 md:flex">
-          <NavItem to="/" label="Home" />
-          <NavItem to="/study" label="Study" />
-          <NavItem to="/journal" label="Journal" />
-          <NavItem to="/dashboard" label="Dashboard" />
-          <NavItem to="/settings" label="Settings" />
-          <NavItem to="/tips" label="Tips" />
+          <NavItem to="/" label={t("nav.home")} />
+          <NavItem to="/study" label={t("nav.study")} />
+          <NavItem to="/journal" label={t("nav.journal")} />
+          <NavItem to="/dashboard" label={t("nav.dashboard")} />
+          <NavItem to="/settings" label={t("nav.settings")} />
+          <NavItem to="/tips" label={t("nav.tips")} />
         </div>
       </div>
 
@@ -59,12 +95,12 @@ export function TopNavbarSignIn() {
           onClick={onSignOut}
           className="rounded-full bg-surface-container-highest/70 px-4 py-2 text-sm font-semibold text-on-surface shadow-sm ring-1 ring-outline-variant/10 transition-transform transition-colors duration-200 hover:scale-105 hover:bg-surface-container-highest active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
         >
-          Sign out
+          {t("nav.signOut")}
         </button>
 
         <button
           type="button"
-          aria-label="Profile"
+          aria-label={t("nav.profile")}
           onClick={() => navigate("/profile")}
           className={[
             "inline-flex h-11 w-11 items-center justify-center rounded-full",
@@ -73,9 +109,33 @@ export function TopNavbarSignIn() {
             "active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
           ].join(" ")}
         >
-          <span className="material-symbols-outlined text-[32px] leading-none">
-            account_circle
-          </span>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={t("nav.profile")}
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : profileInitial ? (
+            <span className="font-headline text-sm font-black tracking-tight text-primary">
+              {profileInitial}
+            </span>
+          ) : (
+            <span className="material-symbols-outlined text-[32px] leading-none">account_circle</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          aria-label={t("nav.language")}
+          title={t("nav.language")}
+          onClick={async () => {
+            await i18n.changeLanguage(next);
+            storeLanguage(next);
+          }}
+          className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest/70 px-4 py-2 text-sm font-semibold text-on-surface shadow-sm ring-1 ring-outline-variant/10 transition-transform transition-colors duration-200 hover:scale-105 hover:bg-surface-container-highest active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <span className="material-symbols-outlined text-[20px] leading-none">language</span>
+          <span className="text-xs font-black tracking-widest text-on-surface/80">{current.toUpperCase()}</span>
         </button>
       </div>
     </nav>

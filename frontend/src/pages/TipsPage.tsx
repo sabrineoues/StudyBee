@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { AmbientOrbs } from "../components/AmbientOrbs";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { Reveal } from "../components/Reveal";
 import { springSnappy } from "../motion/presets";
 const TECH_IMG_1 =
@@ -8,8 +10,10 @@ const TECH_IMG_3 =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuCpn47n62XfEmrOevdF7rX7NlZE8jmvTPjy5fnIzBvTtbJQBmuEgm7A9-vpFoN96Tbx1rngjdqvykam1OQt4uT5vJzS7d1Ir4nLJ1U_CBv7NwZsS0i5UCvRQR2pqXGp-le56uKM6pev9rhZDAdIwQAuzABHyuKWEeahH3BzIJS3wpbIYMJE07c2bpV0cHe7ZFwvnVmbI6Iz1NGYG50Mq66Hsr-bvxQL3nDg_GbCdYjJ29IrxRTdumOvUW7Dyi4hHbG7MiM68YpDNV0";
 
 export function TipsPage() {
+  const { t } = useTranslation();
+
   return (
-    <div className="relative min-h-screen bg-background antialiased text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+    <div className="relative flex min-h-screen flex-col bg-background antialiased text-on-surface selection:bg-primary-container selection:text-on-primary-container">
       <AmbientOrbs className="opacity-[0.45]" />
       <main className="relative mx-auto max-w-6xl space-y-20 px-8 pb-24 pt-28">
         <motion.section
@@ -20,11 +24,11 @@ export function TipsPage() {
         >
           <div className="max-w-2xl">
             <span className="mb-4 block text-[10px] font-bold uppercase tracking-[0.2em] text-tertiary">
-              Personalized Guidance
+              {t("tips.personalizedGuidance")}
             </span>
             <h1 className="headline-font text-6xl font-extrabold leading-[1.1] tracking-tight text-on-surface md:text-7xl">
-              Your Mind, <br />
-              <span className="text-primary">Mastered.</span>
+              {t("tips.heroTitleLine1")} <br />
+              <span className="text-primary">{t("tips.heroTitleLine2")}</span>
             </h1>
             <div className="mt-10 inline-flex items-center gap-4 rounded-full border border-primary-container bg-primary-container/40 px-8 py-4 text-sm font-semibold text-on-primary-container backdrop-blur-sm">
               <span
@@ -34,8 +38,7 @@ export function TipsPage() {
                 auto_awesome
               </span>
               <span>
-                AI insight: Adjusting focus flow based on your current fatigue
-                levels.
+                {t("tips.aiInsight")}
               </span>
             </div>
           </div>
@@ -45,7 +48,7 @@ export function TipsPage() {
           <section>
           <div className="mb-10 flex items-center justify-between border-b border-outline-variant/20 pb-6">
             <h2 className="headline-font text-3xl font-bold tracking-tight text-on-surface">
-              Focus Forecast
+              {t("tips.focusForecast")}
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -55,14 +58,14 @@ export function TipsPage() {
             >
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-                  Optimal Window
+                  {t("tips.optimalWindow")}
                 </span>
                 <p className="headline-font mt-2 origin-left text-4xl font-black text-primary transition-transform group-hover:scale-105">
                   10:00 AM
                 </p>
               </div>
               <p className="mt-6 text-[13px] leading-relaxed text-on-surface-variant">
-                Predicted peak energy based on your sleep cycles.
+                {t("tips.predictedPeakEnergy")}
               </p>
             </motion.div>
             <motion.div
@@ -71,7 +74,7 @@ export function TipsPage() {
             >
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-                  Efficiency Prediction
+                  {t("tips.efficiencyPrediction")}
                 </span>
                 <p className="headline-font mt-2 text-4xl font-black text-primary">
                   88%
@@ -87,18 +90,18 @@ export function TipsPage() {
             >
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-                  Mood Match
+                  {t("tips.moodMatch")}
                 </span>
                 <p className="headline-font mt-2 text-4xl font-black text-tertiary">
-                  Motivated
+                  {t("tips.mentalStates.motivated")}
                 </p>
               </div>
               <div className="mt-6 flex gap-3">
                 <span className="rounded-full bg-secondary-container px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-on-secondary-container">
-                  Lofi Beats
+                  {t("tips.lofiBeats")}
                 </span>
                 <span className="rounded-full bg-secondary-container px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-on-secondary-container">
-                  Quiet Room
+                  {t("tips.quietRoom")}
                 </span>
               </div>
             </motion.div>
@@ -110,10 +113,10 @@ export function TipsPage() {
         <section>
           <div className="mb-10 flex items-center justify-between border-b border-outline-variant/20 pb-6">
             <h2 className="headline-font text-3xl font-bold tracking-tight text-on-surface">
-              Tailored Techniques
+              {t("tips.tailoredTechniques")}
             </h2>
             <div className="rounded-full bg-primary-container px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-on-primary-container">
-              3 Recommendations
+              {t("tips.recommendations", { count: 3 })}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -128,21 +131,20 @@ export function TipsPage() {
               <div className="flex flex-col justify-between py-2">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-widest text-tertiary">
-                    Low Energy
+                    {t("tips.lowEnergy")}
                   </span>
                   <h3 className="headline-font mt-2 text-2xl font-extrabold text-on-surface transition-colors group-hover:text-primary">
-                    The 5-Minute Reset
+                    {t("tips.fiveMinuteReset")}
                   </h3>
                   <p className="mt-3 text-[14px] leading-relaxed text-on-surface-variant">
-                    A quick aerobic burst resets cognitive load. Try jumping
-                    jacks or a simple stretch.
+                    {t("tips.fiveMinuteResetText")}
                   </p>
                 </div>
                 <button
                   type="button"
                   className="headline-font mt-6 flex items-center gap-2 text-sm font-bold text-primary transition-transform hover:translate-x-1"
                 >
-                  Start Timer{" "}
+                  {t("tips.startTimer")}{" "}
                   <span className="material-symbols-outlined text-lg">
                     arrow_forward
                   </span>
@@ -162,21 +164,20 @@ export function TipsPage() {
               <div className="flex flex-col justify-between py-2">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-widest text-tertiary">
-                    Focus Sprint
+                    {t("tips.focusSprint")}
                   </span>
                   <h3 className="headline-font mt-2 text-2xl font-extrabold text-on-surface transition-colors group-hover:text-primary">
-                    Micro-Dose Tasking
+                    {t("tips.microDoseTasking")}
                   </h3>
                   <p className="mt-3 text-[14px] leading-relaxed text-on-surface-variant">
-                    Set a 10-minute sprint for a task you&apos;ve been avoiding.
-                    Action cures anxiety.
+                    {t("tips.microDoseTaskingText")}
                   </p>
                 </div>
                 <button
                   type="button"
                   className="headline-font mt-6 flex items-center gap-2 text-sm font-bold text-primary transition-transform hover:translate-x-1"
                 >
-                  Explore Method{" "}
+                  {t("tips.exploreMethod")}{" "}
                   <span className="material-symbols-outlined text-lg">
                     arrow_forward
                   </span>
@@ -195,13 +196,13 @@ export function TipsPage() {
               <div className="flex flex-col justify-between py-2">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
-                    Visual Learning
+                    {t("tips.visualLearning")}
                   </span>
                   <h3 className="headline-font mt-2 text-3xl font-extrabold text-on-surface transition-colors group-hover:text-primary">
-                    Visual Memory Hack
+                    {t("tips.visualMemoryHack")}
                   </h3>
                   <p className="mt-4 max-w-2xl text-base leading-relaxed text-on-surface-variant">
-                    The Loci method transforms information into physical spaces.
+                    {t("tips.visualMemoryHackText")}
                   </p>
                 </div>
                 <div className="mt-8 flex gap-4">
@@ -209,7 +210,7 @@ export function TipsPage() {
                     type="button"
                     className="headline-font inline-flex items-center justify-center gap-3 rounded-full bg-primary px-10 py-4 text-[13px] font-bold text-on-primary shadow-lg shadow-primary/20 transition-all hover:scale-105"
                   >
-                    Watch Tutorial{" "}
+                    {t("tips.watchTutorial")}{" "}
                     <span className="material-symbols-outlined text-xl">
                       play_circle
                     </span>
@@ -218,7 +219,7 @@ export function TipsPage() {
                     type="button"
                     className="headline-font inline-flex items-center justify-center rounded-full bg-surface-container-highest px-8 py-4 text-[13px] font-bold text-on-surface transition-all hover:bg-surface-container-high"
                   >
-                    Save for later
+                    {t("tips.saveForLater")}
                   </button>
                 </div>
               </div>
@@ -230,10 +231,18 @@ export function TipsPage() {
         <Reveal delay={0.08}>
         <section className="border-t border-outline-variant/20 pt-12">
           <h2 className="headline-font mb-8 text-center text-[11px] font-extrabold uppercase tracking-[0.4em] text-on-surface-variant/70">
-            Explore by Mental State
+            {t("tips.exploreByMentalState")}
           </h2>
           <div className="no-scrollbar flex justify-center gap-4 overflow-x-auto pb-4">
-            {["MOTIVATED", "CALM", "TIRED", "STRESSED", "SAD"].map((m, i) => (
+            {(
+              [
+                "motivated",
+                "calm",
+                "tired",
+                "stressed",
+                "sad",
+              ] as const
+            ).map((m, i) => (
               <motion.button
                 key={m}
                 type="button"
@@ -246,7 +255,7 @@ export function TipsPage() {
                     : "border border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:border-primary/20 hover:bg-surface-container hover:shadow-md"
                 }`}
               >
-                {m}
+                {t(`tips.mentalStates.${m}`)}
               </motion.button>
             ))}
           </div>
@@ -254,32 +263,7 @@ export function TipsPage() {
         </Reveal>
       </main>
 
-      <footer className="border-t border-outline-variant/20 bg-surface px-8 py-16">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-10 md:flex-row">
-          <div className="flex flex-col items-center gap-4 md:items-start">
-            <span className="headline-font text-2xl font-extrabold tracking-tight text-primary">
-              StudyBee
-            </span>
-            <p className="text-[13px] text-on-surface-variant/70">
-              Elevating cognitive potential through AI-driven insights.
-            </p>
-          </div>
-          <div className="headline-font flex gap-12 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-            <a className="transition-colors hover:text-primary" href="#">
-              Privacy
-            </a>
-            <a className="transition-colors hover:text-primary" href="#">
-              Terms
-            </a>
-            <a className="transition-colors hover:text-primary" href="mailto:studybee@mindworkers.tn">
-              Contact
-            </a>
-          </div>
-          <div className="headline-font text-[11px] font-bold uppercase tracking-[0.2em] text-outline">
-            © 2026 StudyBee
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

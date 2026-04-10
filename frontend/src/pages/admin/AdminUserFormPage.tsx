@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   adminService,
   type AdminUserCreate,
@@ -11,6 +12,7 @@ function fieldClass() {
 }
 
 export function AdminUserFormPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams();
   const userId = useMemo(() => {
@@ -63,7 +65,7 @@ export function AdminUserFormPage() {
         setIsSuperuser(u.is_superuser);
       } catch {
         if (!alive) return;
-        setError("Failed to load user.");
+        setError(t("admin.errors.failedToLoadUser"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -72,7 +74,7 @@ export function AdminUserFormPage() {
     return () => {
       alive = false;
     };
-  }, [isEdit, userId]);
+  }, [isEdit, userId, t]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -80,20 +82,20 @@ export function AdminUserFormPage() {
 
     try {
       if (!email.trim() || !username.trim()) {
-        setError("Email and username are required.");
+        setError(t("admin.errors.emailAndUsernameRequired"));
         return;
       }
 
       if (!isEdit) {
         if (!dateOfBirth.trim() || !classLevel.trim() || !parentEmail.trim() || !parentPhone.trim()) {
-          setError("Please fill in all required profile fields.");
+          setError(t("admin.errors.requiredProfileFields"));
           return;
         }
       }
 
       if (!isEdit) {
         if (!password) {
-          setError("Password is required.");
+          setError(t("admin.errors.passwordRequired"));
           return;
         }
         const payload: AdminUserCreate = {
@@ -141,9 +143,9 @@ export function AdminUserFormPage() {
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny?.response?.data;
       if (data && typeof data === "object") {
-        setError("Failed to save. Please check the fields.");
+        setError(t("admin.errors.failedToSaveCheckFields"));
       } else {
-        setError("Failed to save user.");
+        setError(t("admin.errors.failedToSaveUser"));
       }
     }
   }
@@ -153,17 +155,17 @@ export function AdminUserFormPage() {
       <header className="mb-8 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
-            {isEdit ? "Edit user" : "Add user"}
+            {isEdit ? t("admin.userForm.editUser") : t("admin.userForm.addUser")}
           </h1>
           <Link
             to="/admin/users"
             className="rounded-full bg-surface-container-highest/70 px-5 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest"
           >
-            Back
+            {t("admin.common.back")}
           </Link>
         </div>
         <p className="text-on-surface-variant">
-          {isEdit ? "Update account details." : "Create a new account."}
+          {isEdit ? t("admin.userForm.editSubtitle") : t("admin.userForm.addSubtitle")}
         </p>
       </header>
 
@@ -175,34 +177,42 @@ export function AdminUserFormPage() {
 
       <div className="rounded-xl bg-surface-container-low p-6 ring-1 ring-outline-variant/15">
         {loading ? (
-          <p className="text-on-surface-variant">Loading...</p>
+          <p className="text-on-surface-variant">{t("admin.common.loading")}</p>
         ) : (
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="font-label block text-xs uppercase tracking-widest text-outline">Email</label>
+                <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                  {t("admin.userForm.email")}
+                </label>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass()} />
               </div>
               <div className="space-y-2">
-                <label className="font-label block text-xs uppercase tracking-widest text-outline">Username</label>
+                <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                  {t("admin.userForm.username")}
+                </label>
                 <input value={username} onChange={(e) => setUsername(e.target.value)} className={fieldClass()} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="font-label block text-xs uppercase tracking-widest text-outline">First name</label>
+                <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                  {t("admin.userForm.firstName")}
+                </label>
                 <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={fieldClass()} />
               </div>
               <div className="space-y-2">
-                <label className="font-label block text-xs uppercase tracking-widest text-outline">Last name</label>
+                <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                  {t("admin.userForm.lastName")}
+                </label>
                 <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={fieldClass()} />
               </div>
             </div>
 
             <div className="space-y-2">
               <label className="font-label block text-xs uppercase tracking-widest text-outline">
-                Password {isEdit ? "(leave empty to keep)" : ""}
+                {t("admin.userForm.password")} {isEdit ? `(${t("admin.userForm.passwordKeep")})` : ""}
               </label>
               <input
                 type="password"
@@ -213,11 +223,15 @@ export function AdminUserFormPage() {
             </div>
 
             <div className="pt-2">
-              <div className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Profile</div>
+              <div className="mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                {t("admin.userForm.profileSection")}
+              </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Date of birth</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                    {t("admin.userForm.dateOfBirth")}
+                  </label>
                   <input
                     type="date"
                     value={dateOfBirth}
@@ -226,18 +240,24 @@ export function AdminUserFormPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Class level</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                    {t("admin.userForm.classLevel")}
+                  </label>
                   <input value={classLevel} onChange={(e) => setClassLevel(e.target.value)} className={fieldClass()} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Speciality</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                    {t("admin.userForm.speciality")}
+                  </label>
                   <input value={speciality} onChange={(e) => setSpeciality(e.target.value)} className={fieldClass()} />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Parent email</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                    {t("admin.userForm.parentEmail")}
+                  </label>
                   <input
                     value={parentEmail}
                     onChange={(e) => setParentEmail(e.target.value)}
@@ -247,7 +267,9 @@ export function AdminUserFormPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="font-label block text-xs uppercase tracking-widest text-outline">Parent phone</label>
+                <label className="font-label block text-xs uppercase tracking-widest text-outline">
+                  {t("admin.userForm.parentPhone")}
+                </label>
                 <input value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} className={fieldClass()} />
               </div>
             </div>
@@ -255,15 +277,15 @@ export function AdminUserFormPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <label className="flex items-center gap-2 rounded-lg bg-surface-container-highest/40 px-4 py-3 text-sm text-on-surface-variant ring-1 ring-outline-variant/10">
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-                Active
+                {t("admin.userForm.active")}
               </label>
               <label className="flex items-center gap-2 rounded-lg bg-surface-container-highest/40 px-4 py-3 text-sm text-on-surface-variant ring-1 ring-outline-variant/10">
                 <input type="checkbox" checked={isStaff} onChange={(e) => setIsStaff(e.target.checked)} />
-                Staff
+                {t("admin.userForm.staff")}
               </label>
               <label className="flex items-center gap-2 rounded-lg bg-surface-container-highest/40 px-4 py-3 text-sm text-on-surface-variant ring-1 ring-outline-variant/10">
                 <input type="checkbox" checked={isSuperuser} onChange={(e) => setIsSuperuser(e.target.checked)} />
-                Superuser
+                {t("admin.userForm.superuser")}
               </label>
             </div>
 
@@ -272,7 +294,7 @@ export function AdminUserFormPage() {
                 type="submit"
                 className="rounded-full bg-gradient-primary px-6 py-3 text-sm font-bold text-white shadow-sm transition-transform duration-200 hover:scale-105 active:scale-95"
               >
-                Save
+                {t("admin.common.save")}
               </button>
             </div>
           </form>

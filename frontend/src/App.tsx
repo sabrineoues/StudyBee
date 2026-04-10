@@ -16,6 +16,7 @@ import { AdminStatsPage } from './pages/admin/AdminStatsPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminUserFormPage } from './pages/admin/AdminUserFormPage';
 import { AdminSessionsPage } from './pages/admin/AdminSessionsPage';
+import { AdminJournalsPage } from './pages/admin/AdminJournalsPage';
 import { TopNavbar } from './components/TopNavbar';
 import { userService } from './services/userService';
 
@@ -192,6 +193,7 @@ function AppInner() {
           <Route path="users/new" element={<AdminUserFormPage />} />
           <Route path="users/:userId/edit" element={<AdminUserFormPage />} />
           <Route path="sessions" element={<AdminSessionsPage />} />
+          <Route path="journals" element={<AdminJournalsPage />} />
         </Route>
       </Routes>
     </>

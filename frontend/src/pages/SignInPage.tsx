@@ -2,11 +2,13 @@ import { motion } from "framer-motion";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { SiteFooter } from "../components/SiteFooter";
 import { userService } from "../services/userService";
 
 export function SignInPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +25,7 @@ export function SignInPage() {
     try {
       const res = await userService.signIn({ email: email.trim(), password });
       const isAdmin = Boolean(res.user?.is_staff || res.user?.is_superuser);
-      navigate(isAdmin ? "/admin" : "/dashboard");
+      navigate(isAdmin ? "/admin" : "/journal");
     } catch (err) {
       const maybeAny = err as {
         response?: { data?: unknown; status?: number };
@@ -41,7 +43,7 @@ export function SignInPage() {
       setSubmitStatus("error");
       setSubmitMessage(
         msgFromApi ??
-          (typeof maybeAny?.message === "string" ? maybeAny.message : "Sign in failed. Check your credentials.")
+          (typeof maybeAny?.message === "string" ? maybeAny.message : t("signIn.signInFailed"))
       );
     }
   }
@@ -54,16 +56,15 @@ export function SignInPage() {
         <div className="grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-12">
           <div className="relative hidden pr-12 lg:col-span-7 lg:block">
             <span className="mb-6 inline-block rounded-full bg-secondary-container px-4 py-1.5 text-[0.75rem] font-bold uppercase tracking-widest text-on-secondary-container">
-              YOUR STUDY PARTNER
+              {t("signIn.badge")}
             </span>
             <h1 className="font-headline mb-8 text-[4rem] font-extrabold leading-[1.1] tracking-tighter text-on-surface">
-              Focus deep.
+              {t("signIn.heroTitle1")}
               <br />
-              <span className="text-primary italic">Learn faster.</span>
+              <span className="text-primary italic">{t("signIn.heroTitle2")}</span>
             </h1>
             <p className="font-body mb-12 max-w-lg text-xl leading-relaxed text-on-surface-variant">
-              StudyBee transforms your notes into immersive learning journeys.
-              Connect with your hive and conquer your goals together.
+              {t("signIn.heroText")}
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2 rounded-lg bg-surface-container-low p-6 transition-transform duration-300 hover:-translate-y-1">
@@ -71,10 +72,10 @@ export function SignInPage() {
                   psychology
                 </span>
                 <span className="font-headline font-bold text-on-surface">
-                  Smart Recalls
+                  {t("signIn.feature1Title")}
                 </span>
                 <span className="text-sm text-on-surface-variant">
-                  AI-driven flashcards tailored to your pace.
+                  {t("signIn.feature1Text")}
                 </span>
               </div>
               <div className="flex flex-col gap-2 rounded-lg bg-surface-container-low p-6 transition-transform duration-300 hover:-translate-y-1">
@@ -82,10 +83,10 @@ export function SignInPage() {
                   groups
                 </span>
                 <span className="font-headline font-bold text-on-surface">
-                  Hive Study
+                  {t("signIn.feature2Title")}
                 </span>
                 <span className="text-sm text-on-surface-variant">
-                  Real-time collaborative focus sessions.
+                  {t("signIn.feature2Text")}
                 </span>
               </div>
             </div>
@@ -104,10 +105,10 @@ export function SignInPage() {
             >
               <div className="mb-10 text-center lg:text-left">
                 <h2 className="font-headline mb-2 text-2xl font-extrabold text-on-surface md:text-3xl">
-                  Welcome Back
+                  {t("signIn.cardTitle")}
                 </h2>
                 <p className="text-on-surface-variant">
-                  Ready to jump back into the hive?
+                  {t("signIn.cardSubtitle")}
                 </p>
               </div>
 
@@ -133,14 +134,14 @@ export function SignInPage() {
                     className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant"
                     htmlFor="email"
                   >
-                    Email Address
+                    {t("signIn.emailLabel")}
                   </label>
                   <input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder={t("signIn.emailPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -151,13 +152,13 @@ export function SignInPage() {
                       className="ml-1 block text-[0.75rem] font-bold uppercase tracking-wider text-on-surface-variant"
                       htmlFor="password"
                     >
-                      Password
+                      {t("signIn.passwordLabel")}
                     </label>
                     <Link
                       to="/reset-password"
                       className="text-xs font-semibold text-primary hover:underline"
                     >
-                      Forgot?
+                      {t("signIn.forgot")}
                     </Link>
                   </div>
                   <div className="relative">
@@ -173,11 +174,11 @@ export function SignInPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? t("signIn.hidePassword") : t("signIn.showPassword")}
                       aria-pressed={showPassword}
                       className="absolute inset-y-0 right-2 my-2 rounded-md px-3 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
-                      {showPassword ? "Hide" : "Show"}
+                      {showPassword ? t("signIn.hide") : t("signIn.show")}
                     </button>
                   </div>
                 </div>
@@ -186,18 +187,18 @@ export function SignInPage() {
                   disabled={submitStatus === "loading"}
                   className="mt-4 w-full rounded-full bg-gradient-primary py-4 font-bold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95"
                 >
-                  {submitStatus === "loading" ? "Signing in..." : "Sign In to Hive"}
+                  {submitStatus === "loading" ? t("signIn.signingIn") : t("signIn.signInCta")}
                 </button>
               </form>
 
               <div className="mt-10 text-center">
                 <p className="font-medium text-on-surface-variant">
-                  New to StudyBee?{" "}
+                  {t("signIn.newHere")} {" "}
                   <Link
                     to="/sign-up"
                     className="ml-1 font-bold text-primary hover:underline"
                   >
-                    Join the hive
+                    {t("signIn.joinHive")}
                   </Link>
                 </p>
               </div>

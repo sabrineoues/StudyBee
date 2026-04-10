@@ -3,7 +3,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { AmbientOrbs } from "../components/AmbientOrbs";
-import { MarketingFooter } from "../components/MarketingFooter";
+import { SiteFooter } from "../components/SiteFooter";
 import { userService } from "../services/userService";
 
 function useQueryParams() {
@@ -72,7 +72,7 @@ export function ResetPasswordPage() {
       });
 
       setStatus("success");
-  setMessage("Password has been reset.");
+      setMessage("Password has been reset.");
 
       navigate("/sign-in", { replace: true });
     } catch (err) {
@@ -259,7 +259,16 @@ export function ResetPasswordPage() {
           </div>
         </div>
       </main>
-      <MarketingFooter />
+
+      <SiteFooter
+        brand="StudyBee"
+        copyright="© 2026 StudyBee. Built for the future of learning."
+        links={["Privacy Policy", "Terms of Service", "Cookie Settings"]}
+        layout="brand-links-copyright"
+        linksContainerClassName="flex gap-8"
+        linkClassName="font-body text-sm leading-relaxed text-on-surface-variant transition-colors hover:text-primary dark:text-surface-variant dark:hover:text-inverse-primary"
+        copyrightClassName="font-body text-sm leading-relaxed text-on-surface-variant dark:text-surface-variant"
+      />
     </div>
   );
 }

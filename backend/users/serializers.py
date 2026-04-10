@@ -392,6 +392,8 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
 class StudentProfileMeSerializer(serializers.Serializer):
     PHONE_REGEX = re.compile(r"^\+216\d{8}$")
 
+    LANGUAGE_CHOICES = ("en", "fr")
+
     email = serializers.EmailField(required=False)
     username = serializers.CharField(required=False)
     first_name = serializers.CharField(required=False, allow_blank=True)
@@ -403,19 +405,38 @@ class StudentProfileMeSerializer(serializers.Serializer):
     parent_email = serializers.EmailField(required=False, allow_blank=True)
     parent_phone = serializers.CharField(required=False, allow_blank=True)
 
+    language = serializers.ChoiceField(choices=LANGUAGE_CHOICES, required=False)
+
+    camera_access_enabled = serializers.BooleanField(required=False)
+    microphone_access_enabled = serializers.BooleanField(required=False)
+
     def to_representation(self, instance):
         user: User = instance["user"]
         profile: StudentProfile | None = instance.get("profile")
+
+        avatar_url = None
+        if profile and getattr(profile, "avatar", None):
+            try:
+                avatar_url = profile.avatar.url
+                request = self.context.get("request")
+                if request is not None:
+                    avatar_url = request.build_absolute_uri(avatar_url)
+            except Exception:
+                avatar_url = None
         return {
             "email": user.email,
             "username": user.username,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "avatar_url": avatar_url,
             "date_of_birth": profile.date_of_birth if profile else None,
             "class_level": profile.class_level if profile else "",
             "speciality": profile.speciality if profile else "",
             "parent_email": profile.parent_email if profile else "",
             "parent_phone": profile.parent_phone if profile else "",
+            "language": getattr(profile, "language", "en") if profile else "en",
+            "camera_access_enabled": getattr(profile, "camera_access_enabled", False) if profile else False,
+            "microphone_access_enabled": getattr(profile, "microphone_access_enabled", False) if profile else False,
         }
 
     def validate_email(self, value):

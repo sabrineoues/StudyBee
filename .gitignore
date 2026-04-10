@@ -1,7 +1,17 @@
 # Python
 venv/
+env/
+dl_env/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Uploaded/media files
+backend/media/
+
+# Large binary model files
+backend/vision/services/*.dat
 
 # Local environment variables / secrets
 .env
@@ -10,3 +20,11 @@ __pycache__/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# IDE / system files (important)
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log

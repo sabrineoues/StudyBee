@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { studysessionsService } from "../services/studysessionsService";
@@ -10,6 +10,7 @@ import type {
   StudySessionCreate,
 } from "../services/studysessionsService";
 import { userService } from "../services/userService";
+import { visionService } from "../services/visionService";
 
 type SessionFormState = {
   title: string;
@@ -56,7 +57,12 @@ function formatTimer(totalSeconds: number) {
 
 function formatDrfError(data: unknown, fallback: string): string {
   if (!data) return fallback;
-  if (typeof data === "string") return data;
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    // If the backend returned an HTML error page (e.g. Django debug 500), don't dump it into the UI.
+    if (/^<!doctype\s+html/i.test(trimmed) || /^<html\b/i.test(trimmed)) return fallback;
+    return data;
+  }
   if (typeof data !== "object" || Array.isArray(data)) return fallback;
 
   const obj = data as Record<string, unknown>;
@@ -79,6 +85,8 @@ function formatDrfError(data: unknown, fallback: string): string {
 }
 
 export function StudyPage() {
+  const { t } = useTranslation();
+
   const isAdmin = userService.isAdmin();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -97,8 +105,13 @@ export function StudyPage() {
   const [timerTotalSeconds, setTimerTotalSeconds] = useState(0);
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerInitializedForSessionId, setTimerInitializedForSessionId] = useState<number | null>(null);
   const autoStartOnNextSessionRef = useRef(false);
   const statusSyncInFlightRef = useRef<number | null>(null);
+  const fatigueRequestedForSessionIdRef = useRef<number | null>(null);
+  const tiredDismissedForSessionIdRef = useRef<number | null>(null);
+
+  const [showTiredPopup, setShowTiredPopup] = useState(false);
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
@@ -150,6 +163,12 @@ export function StudyPage() {
 
   function pauseTimer() {
     setIsTimerRunning(false);
+
+    // Best-effort: stop eye-blink fatigue monitoring when pausing.
+    fatigueRequestedForSessionIdRef.current = null;
+    void visionService.stopFatigueMonitor().catch(() => {
+      // ignore
+    });
   }
 
   function resetTimer() {
@@ -159,6 +178,12 @@ export function StudyPage() {
     setTimerTotalSeconds(total);
     setTimeLeftSeconds(total);
     setIsTimerRunning(false);
+
+    // Best-effort: stop eye-blink fatigue monitoring when resetting.
+    fatigueRequestedForSessionIdRef.current = null;
+    void visionService.stopFatigueMonitor().catch(() => {
+      // ignore
+    });
     saveTimerState(selectedSession.id, {
       totalSeconds: total,
       timeLeftSeconds: total,
@@ -167,23 +192,29 @@ export function StudyPage() {
     });
   }
 
-  function getStorageKey(sessionId: number) {
+  const getStorageKey = useCallback((sessionId: number) => {
     return `${TIMER_STORAGE_PREFIX}${sessionId}`;
-  }
+  }, []);
 
-  function saveTimerState(sessionId: number, state: StoredTimerState) {
-    window.localStorage.setItem(getStorageKey(sessionId), JSON.stringify(state));
-  }
+  const saveTimerState = useCallback(
+    (sessionId: number, state: StoredTimerState) => {
+      window.localStorage.setItem(getStorageKey(sessionId), JSON.stringify(state));
+    },
+    [getStorageKey],
+  );
 
-  function readTimerState(sessionId: number): StoredTimerState | null {
-    const raw = window.localStorage.getItem(getStorageKey(sessionId));
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as StoredTimerState;
-    } catch {
-      return null;
-    }
-  }
+  const readTimerState = useCallback(
+    (sessionId: number): StoredTimerState | null => {
+      const raw = window.localStorage.getItem(getStorageKey(sessionId));
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as StoredTimerState;
+      } catch {
+        return null;
+      }
+    },
+    [getStorageKey],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -223,6 +254,7 @@ export function StudyPage() {
       setTimerTotalSeconds(0);
       setTimeLeftSeconds(0);
       setIsTimerRunning(false);
+      setTimerInitializedForSessionId(null);
       return;
     }
 
@@ -261,8 +293,12 @@ export function StudyPage() {
       });
     }
 
+    // Mark timer as initialized for this session. This prevents the status-sync effect
+    // from using stale timeLeftSeconds=0 during the first render after selection.
+    setTimerInitializedForSessionId(selectedSession.id);
+
     if (shouldAutoStart) autoStartOnNextSessionRef.current = false;
-  }, [selectedSessionId, selectedSession?.study_duration]);
+  }, [selectedSessionId, selectedSession, readTimerState, saveTimerState]);
 
   useEffect(() => {
     if (!selectedSession || !isTimerRunning || timeLeftSeconds <= 0) return;
@@ -286,10 +322,11 @@ export function StudyPage() {
       isRunning: isTimerRunning,
       endAtMs: isTimerRunning ? Date.now() + timeLeftSeconds * 1000 : null,
     });
-  }, [selectedSession, timerTotalSeconds, timeLeftSeconds, isTimerRunning]);
+  }, [selectedSession, timerTotalSeconds, timeLeftSeconds, isTimerRunning, saveTimerState]);
 
   useEffect(() => {
     if (!selectedSession || isAdmin) return;
+    if (timerInitializedForSessionId !== selectedSession.id) return;
 
     const targetStatus = timeLeftSeconds === 0 ? "completed" : "in_progress";
     if (selectedSession.status === targetStatus) return;
@@ -302,13 +339,21 @@ export function StudyPage() {
         setSessions((previous) =>
           previous.map((session) => (session.id === updated.id ? updated : session)),
         );
+
+        if (targetStatus === "completed") {
+          try {
+            await visionService.stopFatigueMonitor();
+          } catch {
+            // ignore
+          }
+        }
       } catch {
         setError("Could not sync session status with timer.");
       } finally {
         statusSyncInFlightRef.current = null;
       }
     })();
-  }, [selectedSession, timeLeftSeconds, isAdmin]);
+  }, [selectedSession, timeLeftSeconds, isAdmin, timerInitializedForSessionId]);
 
   function openCreateModal() {
     setFormState(EMPTY_FORM);
@@ -363,6 +408,83 @@ export function StudyPage() {
     }
   }
 
+  useEffect(() => {
+    if (!selectedSession || isAdmin) return;
+    if (timerInitializedForSessionId !== selectedSession.id) return;
+    if (!isTimerRunning) return;
+    if (selectedSession.status === "completed") return;
+
+    if (fatigueRequestedForSessionIdRef.current === selectedSession.id) return;
+    fatigueRequestedForSessionIdRef.current = selectedSession.id;
+
+    // Best-effort: start eye-blink fatigue monitoring when the session actually starts (timer running).
+    // Keep it non-blocking and ignore failures (e.g. camera permissions, endpoint disabled).
+    void (async () => {
+      try {
+        const status = await visionService.getFatigueStatus();
+        if (status?.running) return;
+      } catch {
+        // If status fails, still try to start.
+      }
+
+      try {
+        await visionService.startFatigueMonitor();
+      } catch {
+        // ignore
+      }
+    })();
+  }, [selectedSession, isAdmin, isTimerRunning, timerInitializedForSessionId]);
+
+  useEffect(() => {
+    if (!selectedSession || isAdmin) {
+      setShowTiredPopup(false);
+      tiredDismissedForSessionIdRef.current = null;
+      return;
+    }
+    if (timerInitializedForSessionId !== selectedSession.id) {
+      setShowTiredPopup(false);
+      tiredDismissedForSessionIdRef.current = null;
+      return;
+    }
+    if (!isTimerRunning) {
+      setShowTiredPopup(false);
+      tiredDismissedForSessionIdRef.current = null;
+      return;
+    }
+
+    let alive = true;
+
+    const tick = async () => {
+      try {
+        const status = await visionService.getFatigueStatus();
+        if (!alive) return;
+
+        if (!status?.running || !status.tired) {
+          setShowTiredPopup(false);
+          if (tiredDismissedForSessionIdRef.current === selectedSession.id) {
+            tiredDismissedForSessionIdRef.current = null;
+          }
+          return;
+        }
+
+        if (tiredDismissedForSessionIdRef.current === selectedSession.id) return;
+        setShowTiredPopup(true);
+      } catch {
+        // ignore
+      }
+    };
+
+    void tick();
+    const intervalId = window.setInterval(() => {
+      void tick();
+    }, 8000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [selectedSession, isAdmin, isTimerRunning, timerInitializedForSessionId]);
+
   async function handleUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedSession) return;
@@ -408,6 +530,28 @@ export function StudyPage() {
 
   return (
     <StudyBeeShell>
+      {showTiredPopup && selectedSession ? (
+        <div className="fixed top-24 left-0 right-0 z-50 flex justify-center px-4">
+          <div
+            role="alert"
+            className="flex w-full max-w-xl items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3"
+          >
+            <p className="text-sm font-semibold text-red-800">{t("study.tiredPopup.text")}</p>
+            <button
+              type="button"
+              onClick={() => {
+                tiredDismissedForSessionIdRef.current = selectedSession.id;
+                setShowTiredPopup(false);
+              }}
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+              aria-label={t("study.tiredPopup.close")}
+              title={t("study.tiredPopup.close")}
+            >
+              {t("study.tiredPopup.close")}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <main className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 pb-10 pt-24 md:px-8">
         <aside
           className={`rounded-xl border border-surface-container-high bg-surface-container-low shadow-sm transition-all ${
@@ -427,14 +571,14 @@ export function StudyPage() {
           {sidebarOpen && (
             <>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-headline text-lg font-bold">Sessions</h2>
+                <h2 className="font-headline text-lg font-bold">{t("study.sessions.title")}</h2>
                 {!isAdmin && (
                   <button
                     type="button"
                     onClick={openCreateModal}
                     className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-white"
                   >
-                    New Session
+                    {t("study.sessions.newSession")}
                   </button>
                 )}
               </div>
@@ -442,7 +586,7 @@ export function StudyPage() {
               {!isAdmin && (
                 <div className="mb-3">
                   <label htmlFor="student-session-search" className="sr-only">
-                    Search sessions by title or subject
+                    {t("study.sessions.searchLabel")}
                   </label>
                   <div className="flex items-center gap-2 rounded-lg border border-surface-container-high bg-surface px-3 py-2">
                     <span className="material-symbols-outlined text-base text-outline">search</span>
@@ -451,7 +595,7 @@ export function StudyPage() {
                       type="text"
                       value={sessionSearch}
                       onChange={(event) => setSessionSearch(event.target.value)}
-                      placeholder="Search by name or subject"
+                      placeholder={t("study.sessions.searchPlaceholder")}
                       className="w-full bg-transparent text-sm text-on-surface outline-none placeholder:text-outline"
                     />
                     {sessionSearch ? (
@@ -459,8 +603,8 @@ export function StudyPage() {
                         type="button"
                         onClick={() => setSessionSearch("")}
                         className="rounded-full p-1 text-outline transition hover:bg-surface-container-high"
-                        aria-label="Clear search"
-                        title="Clear"
+                        aria-label={t("study.sessions.clearSearch")}
+                        title={t("study.sessions.clearSearch")}
                       >
                         <span className="material-symbols-outlined text-base">close</span>
                       </button>
@@ -469,14 +613,14 @@ export function StudyPage() {
                 </div>
               )}
 
-              {loading && <p className="text-sm text-outline">Loading sessions...</p>}
+              {loading && <p className="text-sm text-outline">{t("study.sessions.loading")}</p>}
               {!loading && sessions.length === 0 && (
                 <p className="text-sm text-outline">
-                  {isAdmin ? "No sessions found." : "No sessions yet. Create your first session."}
+                  {isAdmin ? t("study.sessions.emptyAdmin") : t("study.sessions.empty")}
                 </p>
               )}
               {!loading && sessions.length > 0 && displayedSessions.length === 0 && !isAdmin && (
-                <p className="text-sm text-outline">No sessions match your search.</p>
+                <p className="text-sm text-outline">{t("study.sessions.noMatch")}</p>
               )}
 
               <div className="space-y-2">
@@ -491,7 +635,7 @@ export function StudyPage() {
                         <div className="my-2 flex items-center gap-2 px-1">
                           <span className="h-px flex-1 bg-outline-variant/40" />
                           <span className="text-[10px] font-bold uppercase tracking-widest text-outline">
-                            Other Sessions
+                            {t("study.sessions.otherSessions")}
                           </span>
                           <span className="h-px flex-1 bg-outline-variant/40" />
                         </div>
@@ -525,7 +669,7 @@ export function StudyPage() {
                                 event.stopPropagation();
                                 if (!isAdmin) openEditModal(session);
                               }}
-                              title={!isAdmin ? "Double-click to edit" : undefined}
+                              title={!isAdmin ? t("study.sessions.doubleClickToEdit") : undefined}
                             >
                               {session.title}
                             </p>
@@ -533,11 +677,18 @@ export function StudyPage() {
                           </div>
                           <div className="relative flex items-center gap-2">
                             {session.pinned ? (
-                              <span className="material-symbols-outlined text-sm text-primary" title="Pinned">
+                              <span
+                                className="material-symbols-outlined text-sm text-primary"
+                                title={t("study.sessions.pinned")}
+                              >
                                 keep
                               </span>
                             ) : null}
-                            <span className="text-xs text-outline">{session.status}</span>
+                            <span className="text-xs text-outline">
+                              {t(`study.sessions.status.${session.status}`, {
+                                defaultValue: session.status,
+                              })}
+                            </span>
                             {!isAdmin && (
                               <>
                                 <button
@@ -549,8 +700,8 @@ export function StudyPage() {
                                     );
                                   }}
                                   className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-container-high text-on-surface transition hover:bg-surface-container-highest"
-                                  aria-label={`Session actions for ${session.title}`}
-                                  title="More"
+                                  aria-label={t("study.sessions.actionsFor", { title: session.title })}
+                                  title={t("study.sessions.more")}
                                 >
                                   <span className="material-symbols-outlined text-base">more_horiz</span>
                                 </button>
@@ -569,7 +720,7 @@ export function StudyPage() {
                                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-on-surface transition hover:bg-surface-container-high"
                                     >
                                       <span className="material-symbols-outlined text-base">keep</span>
-                                      {session.pinned ? "Unpin" : "Pin"}
+                                      {session.pinned ? t("study.sessions.unpin") : t("study.sessions.pin")}
                                     </button>
                                     <button
                                       type="button"
@@ -580,7 +731,7 @@ export function StudyPage() {
                                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
                                     >
                                       <span className="material-symbols-outlined text-base">delete</span>
-                                      Delete
+                                      {t("study.sessions.delete")}
                                     </button>
                                   </div>
                                 ) : null}
@@ -606,19 +757,10 @@ export function StudyPage() {
 
           {!selectedSession && !loading && (
             <section className="rounded-xl bg-surface-container-low p-8 text-center">
-              <h3 className="font-headline text-xl font-bold text-on-surface">One focused step is enough to start</h3>
-              <div className="mt-2 space-y-1 text-sm text-outline">
-                <p>You are building momentum.</p>
-                <p>Pick an unfinished session on the left, create a new one.</p>
-                <p>Don&apos;t forget to take one minute to reflect before you begin.</p>
-              </div>
-              <Link
-                to="/journal"
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-              >
-                <span className="material-symbols-outlined text-base">menu_book</span>
-                Write in Journal
-              </Link>
+              <h3 className="font-headline text-xl font-bold text-on-surface">
+                {t("study.emptyState.title")}
+              </h3>
+              <p className="mt-2 text-sm text-outline">{t("study.emptyState.subtitle")}</p>
             </section>
           )}
 
@@ -626,9 +768,9 @@ export function StudyPage() {
             <>
               <section className="grid gap-6 lg:grid-cols-[minmax(260px,0.72fr)_minmax(620px,1.95fr)]">
                 <div className="space-y-6 lg:max-w-[360px]">
-                  <article className="rounded-[28px] bg-[#f4dfd1] p-6 text-center shadow-sm ring-1 ring-black/5">
-                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#8f796d]">
-                      Deep Focus Mode
+                  <article className="rounded-2xl bg-surface-container-low p-6 text-center shadow-sm ring-1 ring-outline-variant/10">
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant/80">
+                      {t("study.deepFocusMode")}
                     </p>
                     <div className="relative mx-auto mb-4 h-56 w-56">
                       <svg className="h-full w-full -rotate-90" viewBox="0 0 240 240">
@@ -639,7 +781,7 @@ export function StudyPage() {
                           fill="transparent"
                           stroke="currentColor"
                           strokeWidth="10"
-                          className="text-[#e1cbbd]"
+                          className="text-outline-variant/40"
                         />
                         <circle
                           cx="120"
@@ -651,45 +793,49 @@ export function StudyPage() {
                           strokeLinecap="round"
                           strokeDasharray={ringCircumference}
                           strokeDashoffset={ringDashOffset}
-                          className="text-[#4c69b8] transition-all duration-700"
+                          className="text-primary transition-all duration-700"
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <p className="font-headline text-5xl font-extrabold tracking-tight text-[#2f241e]">
+                        <p className="font-headline text-5xl font-extrabold tracking-tight text-on-surface">
                           {formatTimer(timeLeftSeconds)}
                         </p>
-                        <p className="mt-1 text-[11px] font-medium text-[#8f796d]">
-                          minutes remaining
+                        <p className="mt-1 text-[11px] font-medium text-on-surface-variant/80">
+                          {t("study.minutesRemaining")}
                         </p>
                       </div>
                     </div>
-                    <p className="mt-2 text-sm text-[#8f796d]">Break: {selectedSession.break_duration} minutes</p>
+                    <p className="mt-2 text-sm text-on-surface-variant">
+                      {t("study.breakLabel", { minutes: selectedSession.break_duration })}
+                    </p>
+
                     {!isAdmin && selectedSession.status !== "completed" && (
                       <div className="mt-5 flex items-center justify-center gap-3">
                         {!isTimerRunning ? (
                           <button
                             type="button"
                             onClick={startTimer}
-                            className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-full bg-[#4c69b8] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(76,105,184,0.28)] transition hover:bg-[#405ca8]"
+                            className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition hover:shadow-md hover:shadow-primary/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 active:scale-[0.99]"
                           >
                             <span className="material-symbols-outlined text-[18px]">play_arrow</span>
-                            Start Session
+                            {t("study.startSession")}
                           </button>
                         ) : (
                           <button
                             type="button"
                             onClick={pauseTimer}
-                            className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-full bg-[#4c69b8] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(76,105,184,0.28)] transition hover:bg-[#405ca8]"
+                            className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition hover:shadow-md hover:shadow-primary/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 active:scale-[0.99]"
                           >
                             <span className="material-symbols-outlined text-[18px]">pause</span>
-                            Pause Session
+                            {t("study.pauseSession")}
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={resetTimer}
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#e8d3c6] text-[#6f5b50] shadow-[0_8px_18px_rgba(111,91,80,0.12)] transition hover:bg-[#dec5b4]"
-                          aria-label="Reset session timer"
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant shadow-sm ring-1 ring-outline-variant/10 transition hover:bg-surface-container-highest focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15"
+                          aria-label={t("study.resetTimer")}
+                          title={t("study.resetTimer")}
                         >
                           <span className="material-symbols-outlined text-[20px]">refresh</span>
                         </button>
@@ -697,50 +843,53 @@ export function StudyPage() {
                     )}
                   </article>
 
-                  <article className="rounded-xl bg-surface-container-low p-6 shadow-sm">
+                  <article className="rounded-xl bg-surface-container-low p-6 shadow-sm ring-1 ring-outline-variant/10">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 className="font-headline text-lg font-bold text-on-surface">Progress</h3>
+                      <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.progress.title")}</h3>
                       <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
                         {progress}%
                       </span>
                     </div>
-                    <div className="h-3 w-full rounded-full bg-primary/10">
+                    <div className="h-3 w-full rounded-full bg-surface-container-high">
                       <div
                         className="h-full rounded-full bg-primary transition-all"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
-                    <p className="mt-2 text-xs text-outline">Focus score based progress for this session.</p>
+                    <p className="mt-2 text-xs text-outline">{t("study.progress.subtitle")}</p>
                   </article>
 
-                  <article className="rounded-xl bg-surface-container-low p-6 shadow-sm">
-                    <h3 className="font-headline text-lg font-bold text-on-surface">To Do List</h3>
-                    <p className="mt-3 rounded-lg bg-surface p-3 text-sm text-on-surface-variant">
-                      No tasks yet for this session.
+                  <article className="rounded-xl bg-surface-container-low p-6 shadow-sm ring-1 ring-outline-variant/10">
+                    <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.todo.title")}</h3>
+                    <p className="mt-3 rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface-variant">
+                      {t("study.todo.empty")}
                     </p>
                   </article>
                 </div>
 
                 <article className="flex min-h-[400px] w-full flex-col overflow-hidden rounded-xl border border-surface-container-high bg-surface-container-low shadow-sm">
                   <header className="border-b border-surface-container-high p-4">
-                    <h3 className="font-headline text-lg font-bold text-on-surface">StudyBee Chatbot</h3>
+                    <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.chat.title")}</h3>
                     <p className="text-xs text-outline">
-                      Context: {selectedSession.title} ({selectedSession.subject})
+                      {t("study.chat.context", {
+                        title: selectedSession.title,
+                        subject: selectedSession.subject,
+                      })}
                     </p>
                   </header>
                   <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                    <div className="rounded-xl bg-white p-3 text-sm text-on-surface shadow-sm">
-                      I can help explain {selectedSession.subject}. Ask me about this session topic.
+                    <div className="rounded-xl border border-surface-container-high bg-surface p-3 text-sm text-on-surface shadow-sm">
+                      {t("study.chat.assistantIntro", { subject: selectedSession.subject })}
                     </div>
-                    <div className="ml-auto max-w-[80%] rounded-xl bg-primary p-3 text-sm text-white">
-                      Give me a quick summary strategy for this study block.
+                    <div className="ml-auto max-w-[80%] rounded-xl bg-primary p-3 text-sm text-on-primary">
+                      {t("study.chat.userExample")}
                     </div>
                   </div>
                   <footer className="border-t border-surface-container-high p-4">
                     <textarea
                       rows={2}
-                      placeholder="Ask StudyBee anything about this session..."
-                      className="w-full resize-none rounded-lg bg-surface-container-high p-3"
+                      placeholder={t("study.chat.placeholder")}
+                      className="w-full resize-none rounded-lg border border-surface-container-high bg-surface-container-high p-3 text-sm text-on-surface outline-none placeholder:text-outline focus-visible:ring-4 focus-visible:ring-primary/15"
                     />
                   </footer>
                 </article>
@@ -752,9 +901,9 @@ export function StudyPage() {
 
       {(showCreateModal || showEditModal) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl ring-1 ring-outline-variant/10">
             <h2 className="font-headline text-xl font-bold text-on-surface">
-              {showCreateModal ? "New Session" : "Edit Session"}
+              {showCreateModal ? t("study.modals.newSessionTitle") : t("study.modals.editSessionTitle")}
             </h2>
 
             <form className="mt-4 space-y-3" onSubmit={showCreateModal ? handleCreate : handleUpdate}>
@@ -762,23 +911,23 @@ export function StudyPage() {
                 required
                 value={formState.title}
                 onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Title"
-                className="w-full rounded-lg border border-surface-container-high p-2"
+                placeholder={t("study.modals.titlePlaceholder")}
+                className="w-full rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface outline-none placeholder:text-outline focus-visible:ring-4 focus-visible:ring-primary/15"
               />
               <input
                 required
                 value={formState.subject}
                 onChange={(event) => setFormState((prev) => ({ ...prev, subject: event.target.value }))}
-                placeholder="Subject"
-                className="w-full rounded-lg border border-surface-container-high p-2"
+                placeholder={t("study.modals.subjectPlaceholder")}
+                className="w-full rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface outline-none placeholder:text-outline focus-visible:ring-4 focus-visible:ring-primary/15"
               />
               <p className="rounded-lg bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
-                Timer is fixed for students: 25 min focus / 5 min break.
+                {t("study.modals.timerFixed")}
               </p>
 
               {showEditModal && (
                 <p className="rounded-lg bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant">
-                  Status is automatic and changes to completed when timer reaches 00:00.
+                  {t("study.modals.statusAutomatic")}
                 </p>
               )}
 
@@ -790,16 +939,20 @@ export function StudyPage() {
                     setShowCreateModal(false);
                     setShowEditModal(false);
                   }}
-                  className="rounded-lg border border-surface-container-high px-4 py-2"
+                  className="rounded-lg border border-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-low disabled:opacity-60"
                 >
-                  Cancel
+                  {t("admin.common.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-primary px-4 py-2 font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-sm shadow-primary/20 transition hover:shadow-md hover:shadow-primary/25 disabled:opacity-50"
                 >
-                  {saving ? "Saving..." : showCreateModal ? "Create" : "Update"}
+                  {saving
+                    ? t("admin.common.saving")
+                    : showCreateModal
+                      ? t("study.modals.create")
+                      : t("study.modals.update")}
                 </button>
               </div>
             </form>
@@ -809,12 +962,12 @@ export function StudyPage() {
 
       {deleteTargetSession ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl ring-1 ring-outline-variant/10">
-            <h2 className="font-headline text-xl font-bold text-on-surface">Delete Session</h2>
+          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl ring-1 ring-outline-variant/10">
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("study.delete.title")}</h2>
             <p className="mt-2 text-sm text-on-surface-variant">
-              Are you sure you want to delete <span className="font-semibold text-on-surface">{deleteTargetSession.title}</span>?
+              {t("study.delete.confirm", { title: deleteTargetSession.title })}
             </p>
-            <p className="mt-1 text-xs text-outline">This action cannot be undone.</p>
+            <p className="mt-1 text-xs text-outline">{t("study.delete.warning")}</p>
 
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -822,14 +975,14 @@ export function StudyPage() {
                 onClick={() => setDeleteTargetSession(null)}
                 className="rounded-lg border border-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface"
               >
-                Cancel
+                {t("admin.common.cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => void handleDelete(deleteTargetSession.id)}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
               >
-                Delete
+                {t("study.delete.delete")}
               </button>
             </div>
           </div>

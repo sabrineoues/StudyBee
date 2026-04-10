@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   studysessionsService,
@@ -7,13 +8,16 @@ import {
   type AdminStudySessionUpdate,
 } from "../../services/studysessionsService";
 
-function formatDate(value: string) {
+function formatDate(value: string, locale?: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString();
+  return d.toLocaleString(locale);
 }
 
 export function AdminSessionsPage() {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+
   const [sessions, setSessions] = useState<AdminStudySession[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -49,7 +53,7 @@ export function AdminSessionsPage() {
     for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
       const d = new Date(currentYear, monthIndex, 1);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const label = d.toLocaleString("en-US", { month: "short" });
+      const label = d.toLocaleString(locale, { month: "short" });
       months.push({ key, label, count: 0 });
     }
 
@@ -63,11 +67,12 @@ export function AdminSessionsPage() {
 
     const max = Math.max(1, ...months.map((m) => m.count));
     return { months, max };
-  }, [sessions]);
+  }, [sessions, locale]);
 
   const weekdayStats = useMemo(() => {
     const source = sessions ?? [];
-    const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const formatter = new Intl.DateTimeFormat(locale, { weekday: "short" });
+    const labels = Array.from({ length: 7 }, (_, index) => formatter.format(new Date(2024, 0, 1 + index)));
     const counts = [0, 0, 0, 0, 0, 0, 0];
 
     source.forEach((session) => {
@@ -88,7 +93,10 @@ export function AdminSessionsPage() {
       .join(" ");
 
     return { labels, counts, max, points };
-  }, [sessions]);
+  }, [sessions, locale]);
+
+  const statusLabel = (status: AdminStudySession["status"]) =>
+    status === "completed" ? t("admin.general.completed") : t("admin.general.inProgress");
 
   async function reload() {
     setError(null);
@@ -98,9 +106,9 @@ export function AdminSessionsPage() {
     } catch (err) {
       const maybeAny = err as { response?: { status?: number } };
       const status = maybeAny?.response?.status;
-      if (status === 401) setError("Session expired. Please sign in again.");
-      else if (status === 403) setError("Access denied. Your account is not staff.");
-      else setError("Failed to load sessions.");
+      if (status === 401) setError(t("admin.errors.sessionExpired"));
+      else if (status === 403) setError(t("admin.errors.accessDeniedNotStaff"));
+      else setError(t("admin.errors.failedToLoadSessions"));
     }
   }
 
@@ -157,14 +165,14 @@ export function AdminSessionsPage() {
       );
       setEditingSession(null);
     } catch {
-      setError("Failed to update session.");
+      setError(t("admin.errors.failedToUpdateSession"));
     } finally {
       setBusyId(null);
     }
   }
 
   async function handleDelete(sessionId: number) {
-    const ok = window.confirm(`Delete session #${sessionId}?`);
+    const ok = window.confirm(t("admin.sessions.deleteConfirm", { id: sessionId }));
     if (!ok) return;
 
     setBusyId(sessionId);
@@ -173,7 +181,7 @@ export function AdminSessionsPage() {
       await studysessionsService.deleteAdminSession(sessionId);
       setSessions((previous) => (previous ? previous.filter((s) => s.id !== sessionId) : previous));
     } catch {
-      setError("Failed to delete session.");
+      setError(t("admin.errors.failedToDeleteSession"));
     } finally {
       setBusyId(null);
     }
@@ -184,9 +192,9 @@ export function AdminSessionsPage() {
       <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface md:text-5xl">
-            Study Sessions
+            {t("admin.sessions.title")}
           </h1>
-          <p className="mt-2 text-on-surface-variant">Manage all user sessions.</p>
+          <p className="mt-2 text-on-surface-variant">{t("admin.sessions.subtitle")}</p>
         </div>
 
         <button
@@ -194,7 +202,7 @@ export function AdminSessionsPage() {
           onClick={() => void reload()}
           className="rounded-full bg-surface-container-highest/70 px-5 py-3 text-sm font-semibold text-on-surface shadow-sm ring-1 ring-outline-variant/10 transition-transform transition-colors duration-200 hover:scale-105 hover:bg-surface-container-highest active:scale-95"
         >
-          Refresh
+          {t("admin.common.refresh")}
         </button>
       </header>
 
@@ -207,29 +215,33 @@ export function AdminSessionsPage() {
       <section className="mb-8 grid gap-4 lg:grid-cols-2">
         <article className="rounded-xl bg-surface-container-low p-5 ring-1 ring-outline-variant/15">
           <div className="mb-3">
-            <h2 className="font-headline text-xl font-bold text-on-surface">Status Distribution</h2>
-            <p className="text-xs text-on-surface-variant">Pie chart for in-progress vs completed sessions.</p>
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("admin.sessions.cards.statusDistribution.title")}</h2>
+            <p className="text-xs text-on-surface-variant">{t("admin.sessions.cards.statusDistribution.subtitle")}</p>
           </div>
 
           <div className="flex items-center gap-5">
             <div
               className="relative h-28 w-28 rounded-full"
               style={{ background: pieGradient }}
-              aria-label="Session status pie chart"
+              aria-label={t("admin.sessions.aria.statusPie")}
             >
               <div className="absolute inset-[16px] rounded-full bg-surface-container-low" />
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#4c69b8]" />
-                <span className="text-on-surface">Completed: {statusStats.completed}</span>
+                <span className="text-on-surface">
+                  {t("admin.general.completed")}: {statusStats.completed}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#d38b73]" />
-                <span className="text-on-surface">In progress: {statusStats.inProgress}</span>
+                <span className="text-on-surface">
+                  {t("admin.general.inProgress")}: {statusStats.inProgress}
+                </span>
               </div>
               <p className="pt-1 text-xs font-semibold uppercase tracking-widest text-outline">
-                Total: {statusStats.total}
+                {t("admin.common.total")}: {statusStats.total}
               </p>
             </div>
           </div>
@@ -237,12 +249,17 @@ export function AdminSessionsPage() {
 
         <article className="rounded-xl bg-surface-container-low p-5 ring-1 ring-outline-variant/15">
           <div className="mb-3">
-            <h2 className="font-headline text-xl font-bold text-on-surface">Weekday Trend</h2>
-            <p className="text-xs text-on-surface-variant">Graph: x = day of week, y = sessions created.</p>
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("admin.sessions.cards.weekdayTrend.title")}</h2>
+            <p className="text-xs text-on-surface-variant">{t("admin.sessions.cards.weekdayTrend.subtitle")}</p>
           </div>
 
           <div className="rounded-lg bg-surface-container-high/40 p-3">
-            <svg viewBox="0 0 100 100" className="h-36 w-full" preserveAspectRatio="none" aria-label="Sessions per weekday line graph">
+            <svg
+              viewBox="0 0 100 100"
+              className="h-36 w-full"
+              preserveAspectRatio="none"
+              aria-label={t("admin.sessions.aria.weekdayLine")}
+            >
               <line x1="0" y1="100" x2="100" y2="100" stroke="rgb(186 170 159)" strokeWidth="0.8" />
               <line x1="0" y1="66" x2="100" y2="66" stroke="rgb(186 170 159)" strokeWidth="0.4" />
               <line x1="0" y1="33" x2="100" y2="33" stroke="rgb(186 170 159)" strokeWidth="0.4" />
@@ -268,8 +285,8 @@ export function AdminSessionsPage() {
 
         <article className="rounded-xl bg-surface-container-low p-5 ring-1 ring-outline-variant/15 lg:col-span-2">
           <div className="mb-3">
-            <h2 className="font-headline text-xl font-bold text-on-surface">Sessions per Month</h2>
-            <p className="text-xs text-on-surface-variant">Number of created sessions by month (Jan to Dec).</p>
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("admin.sessions.cards.perMonth.title")}</h2>
+            <p className="text-xs text-on-surface-variant">{t("admin.sessions.cards.perMonth.subtitle")}</p>
           </div>
 
           <div className="mt-4 rounded-lg bg-surface-container-high/50 p-3">
@@ -297,30 +314,30 @@ export function AdminSessionsPage() {
 
       <div className="mb-6 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
         <div>
-          <label className="font-label mb-2 block text-xs uppercase tracking-widest text-outline">Search</label>
+          <label className="font-label mb-2 block text-xs uppercase tracking-widest text-outline">{t("admin.sessions.search.label")}</label>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by id, title, subject, or username"
+            placeholder={t("admin.sessions.search.placeholder")}
             className="w-full rounded-full border-none bg-surface-container-highest/70 px-5 py-3 text-sm font-semibold text-on-surface placeholder:text-outline/60 ring-1 ring-outline-variant/10 focus:ring-2 focus:ring-primary/40"
           />
         </div>
 
         <div>
-          <label className="font-label mb-2 block text-xs uppercase tracking-widest text-outline">Status</label>
+          <label className="font-label mb-2 block text-xs uppercase tracking-widest text-outline">{t("admin.sessions.filters.status")}</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as "all" | "in_progress" | "completed")}
             className="rounded-full border-none bg-surface-container-highest/70 px-4 py-3 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/10"
           >
-            <option value="all">All</option>
-            <option value="in_progress">In progress</option>
-            <option value="completed">Completed</option>
+            <option value="all">{t("admin.sessions.filters.all")}</option>
+            <option value="in_progress">{t("admin.general.inProgress")}</option>
+            <option value="completed">{t("admin.general.completed")}</option>
           </select>
         </div>
 
         <div className="text-sm font-semibold text-on-surface-variant">
-          {filtered ? `${filtered.length} result${filtered.length === 1 ? "" : "s"}` : "..."}
+          {filtered ? t("admin.sessions.results", { count: filtered.length }) : "..."}
         </div>
       </div>
 
@@ -329,14 +346,14 @@ export function AdminSessionsPage() {
           <table className="min-w-full text-left text-sm">
             <thead className="bg-surface-container-highest/40 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
               <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3">Subject</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Focus</th>
-                <th className="px-4 py-3">Streak</th>
-                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.id")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.user")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.title")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.subject")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.status")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.focus")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.streak")}</th>
+                <th className="px-4 py-3">{t("admin.sessions.columns.created")}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -349,10 +366,10 @@ export function AdminSessionsPage() {
                       <td className="px-4 py-3 text-on-surface-variant">{s.username}</td>
                       <td className="px-4 py-3 text-on-surface-variant">{s.title}</td>
                       <td className="px-4 py-3 text-on-surface-variant">{s.subject}</td>
-                      <td className="px-4 py-3">{s.status}</td>
+                      <td className="px-4 py-3">{statusLabel(s.status)}</td>
                       <td className="px-4 py-3">{s.focusScore}</td>
                       <td className="px-4 py-3">{s.streakscore}</td>
-                      <td className="px-4 py-3 text-on-surface-variant">{formatDate(s.created_at)}</td>
+                      <td className="px-4 py-3 text-on-surface-variant">{formatDate(s.created_at, locale)}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <button
@@ -360,7 +377,7 @@ export function AdminSessionsPage() {
                             onClick={() => openEdit(s)}
                             className="rounded-full bg-surface-container-highest/70 px-4 py-2 text-xs font-semibold text-on-surface ring-1 ring-outline-variant/10 transition-colors hover:bg-surface-container-highest"
                           >
-                            Edit
+                            {t("admin.common.edit")}
                           </button>
                           <button
                             type="button"
@@ -368,7 +385,7 @@ export function AdminSessionsPage() {
                             disabled={busyId === s.id}
                             className="rounded-full bg-error-container/20 px-4 py-2 text-xs font-semibold text-on-error-container ring-1 ring-outline-variant/10 transition-colors hover:bg-error-container/30 disabled:opacity-60"
                           >
-                            {busyId === s.id ? "Deleting..." : "Delete"}
+                            {busyId === s.id ? t("admin.common.deleting") : t("admin.common.delete")}
                           </button>
                         </div>
                       </td>
@@ -377,14 +394,14 @@ export function AdminSessionsPage() {
                 ) : (
                   <tr>
                     <td className="px-4 py-6 text-on-surface-variant" colSpan={9}>
-                      No sessions match your filters.
+                      {t("admin.sessions.noSessionsMatch")}
                     </td>
                   </tr>
                 )
               ) : (
                 <tr>
                   <td className="px-4 py-6 text-on-surface-variant" colSpan={9}>
-                    Loading...
+                    {t("admin.common.loading")}
                   </td>
                 </tr>
               )}
@@ -396,29 +413,31 @@ export function AdminSessionsPage() {
       {editingSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="font-headline text-xl font-bold text-on-surface">Edit Session #{editingSession.id}</h2>
+            <h2 className="font-headline text-xl font-bold text-on-surface">
+              {t("admin.sessions.modal.editTitle", { id: editingSession.id })}
+            </h2>
             <form className="mt-4 space-y-3" onSubmit={handleSaveEdit}>
               <input
                 required
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="w-full rounded-lg border border-surface-container-high p-2"
-                placeholder="Title"
+                placeholder={t("admin.sessions.form.title")}
               />
               <input
                 required
                 value={editSubject}
                 onChange={(e) => setEditSubject(e.target.value)}
                 className="w-full rounded-lg border border-surface-container-high p-2"
-                placeholder="Subject"
+                placeholder={t("admin.sessions.form.subject")}
               />
               <select
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value as "in_progress" | "completed")}
                 className="w-full rounded-lg border border-surface-container-high p-2"
               >
-                <option value="in_progress">in_progress</option>
-                <option value="completed">completed</option>
+                <option value="in_progress">{t("admin.general.inProgress")}</option>
+                <option value="completed">{t("admin.general.completed")}</option>
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -426,14 +445,14 @@ export function AdminSessionsPage() {
                   value={editFocusScore}
                   onChange={(e) => setEditFocusScore(Number(e.target.value))}
                   className="w-full rounded-lg border border-surface-container-high p-2"
-                  placeholder="Focus score"
+                  placeholder={t("admin.sessions.form.focusScore")}
                 />
                 <input
                   type="number"
                   value={editStreakScore}
                   onChange={(e) => setEditStreakScore(Number(e.target.value))}
                   className="w-full rounded-lg border border-surface-container-high p-2"
-                  placeholder="Streak score"
+                  placeholder={t("admin.sessions.form.streakScore")}
                 />
               </div>
 
@@ -443,14 +462,14 @@ export function AdminSessionsPage() {
                   onClick={() => setEditingSession(null)}
                   className="rounded-lg border border-surface-container-high px-4 py-2"
                 >
-                  Cancel
+                  {t("admin.common.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={busyId === editingSession.id}
                   className="rounded-lg bg-primary px-4 py-2 font-semibold text-white disabled:opacity-50"
                 >
-                  {busyId === editingSession.id ? "Saving..." : "Save"}
+                  {busyId === editingSession.id ? t("admin.common.saving") : t("admin.common.save")}
                 </button>
               </div>
             </form>

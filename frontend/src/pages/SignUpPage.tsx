@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { userService } from "../services/userService";
 
@@ -17,12 +18,6 @@ const UNIVERSITY_CLASS_LEVELS = [
   "5th year university",
   "1st master",
   "2nd master",
-] as const;
-
-const footerLinks = [
-  { label: "Features", href: "/#features" },
-  { label: "About", href: "/#about" },
-  { label: "Contact", href: "mailto:studybee@mindworkers.tn" },
 ] as const;
 
 function isValidDateIso(dateIso: string): boolean {
@@ -43,6 +38,7 @@ function isValidDateIso(dateIso: string): boolean {
 }
 
 export function SignUpPage() {
+  const { t } = useTranslation();
   const [showPw, setShowPw] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -72,6 +68,12 @@ export function SignUpPage() {
         : [];
   const classLevelDisabled = classLevelOptions.length === 0;
 
+  const footerLinks = [
+    { label: t("marketingFooter.features"), href: "/#features" },
+    { label: t("marketingFooter.about"), href: "/#about" },
+    { label: t("marketingFooter.contact"), href: "mailto:studybee@mindworkers.tn" },
+  ] as const;
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
 
@@ -87,40 +89,40 @@ export function SignUpPage() {
 
     const nextErrors: typeof fieldErrors = {};
     if (!trimmedFirstName || !NAME_REGEX.test(trimmedFirstName)) {
-      nextErrors.firstName = "First name must contain letters only.";
+      nextErrors.firstName = t("signUp.errors.firstNameLetters");
     }
     if (!trimmedLastName || !NAME_REGEX.test(trimmedLastName)) {
-      nextErrors.lastName = "Last name must contain letters only.";
+      nextErrors.lastName = t("signUp.errors.lastNameLetters");
     }
     if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
-      nextErrors.email = "Invalid email (e.g. name@domain.tld).";
+      nextErrors.email = t("signUp.errors.invalidEmail");
     }
     if (!isValidDateIso(dateOfBirth)) {
-      nextErrors.dateOfBirth = "Invalid date of birth.";
+      nextErrors.dateOfBirth = t("signUp.errors.invalidDob");
     }
 
     if (!studyLevel) {
-      nextErrors.studyLevel = "Choose Secondary or University.";
+      nextErrors.studyLevel = t("signUp.errors.chooseStudyLevel");
     }
 
     if (!classLevel || !classLevelOptions.includes(classLevel as never)) {
-      nextErrors.classLevel = "Choose a level from the list.";
+      nextErrors.classLevel = t("signUp.errors.chooseClassLevel");
     }
     if (!trimmedParentPhone || !PARENT_PHONE_REGEX.test(trimmedParentPhone)) {
-      nextErrors.parentPhone = "Phone must start with +216 and contain 8 digits.";
+      nextErrors.parentPhone = t("signUp.errors.invalidParentPhone");
     }
     if (!trimmedSpeciality) {
-      nextErrors.speciality = "Specialty is required.";
+      nextErrors.speciality = t("signUp.errors.specialityRequired");
     }
 
     if (password !== passwordConfirm) {
-      nextErrors.passwordConfirm = "Passwords do not match.";
+      nextErrors.passwordConfirm = t("signUp.errors.passwordsMismatch");
     }
 
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
       setSubmitStatus("error");
-      setSubmitMessage("Fix the highlighted fields and try again.");
+      setSubmitMessage(t("signUp.messages.fixFields"));
       return;
     }
 
@@ -147,7 +149,7 @@ export function SignUpPage() {
       console.log("Sign Up success:", result);
       setSubmitStatus("success");
       setSubmitMessage(
-        typeof result?.message === "string" ? result.message : "User created successfully."
+        typeof result?.message === "string" ? result.message : t("signUp.messages.created")
       );
     } catch (err) {
       console.error("Sign Up failed:", err);
@@ -200,7 +202,7 @@ export function SignUpPage() {
         }
 
         setSubmitStatus("error");
-        setSubmitMessage(lines.length > 0 ? lines.join("\n") : "Sign up failed.");
+        setSubmitMessage(lines.length > 0 ? lines.join("\n") : t("signUp.messages.failed"));
         return;
       }
 
@@ -216,7 +218,7 @@ export function SignUpPage() {
         msgFromApi ??
           (typeof maybeAny?.message === "string"
             ? maybeAny.message
-            : "Sign up failed. Check the fields and try again.")
+            : t("signUp.messages.failedGeneric"))
       );
     }
   }
@@ -224,21 +226,21 @@ export function SignUpPage() {
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-body text-on-background">
       <AmbientOrbs className="opacity-75" />
-      <main className="relative flex flex-grow items-center justify-center px-6 pb-12 pt-24">
-        <div className="grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
+      <main className="relative flex flex-grow items-start justify-center px-6 pb-12 pt-24">
+        <div className="grid w-full max-w-6xl grid-cols-1 items-start gap-12 lg:grid-cols-2">
           {/* Illustration / text */}
-          <div className="hidden space-y-8 pr-12 lg:block">
+          <div className="space-y-8 text-center lg:mt-10 lg:pr-12 lg:text-left">
             <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container/20 px-4 py-2 text-xs font-bold uppercase tracking-widest text-tertiary">
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
                 auto_awesome
               </span>
-              Join the Future
+              {t("signUp.badge")}
             </div>
-            <h1 className="font-headline text-6xl font-extrabold leading-[1.1] tracking-tight text-on-background xl:text-7xl">
-              Design your <span className="text-primary">academic</span> flow.
+            <h1 className="font-headline text-5xl font-extrabold leading-[1.1] tracking-tight text-on-background sm:text-6xl xl:text-7xl">
+              {t("signUp.heroTitlePrefix")} <span className="text-primary">{t("signUp.heroTitleHighlight")}</span> {t("signUp.heroTitleSuffix")}
             </h1>
-            <p className="max-w-md text-xl leading-relaxed text-on-surface-variant">
-              The only study platform that adapts to your psychological state and learning style.
+            <p className="mx-auto max-w-md text-lg leading-relaxed text-on-surface-variant sm:text-xl lg:mx-0">
+              {t("signUp.heroText")}
             </p>
           </div>
 
@@ -251,7 +253,7 @@ export function SignUpPage() {
               className="card-shine rounded-xl bg-surface-container-lowest p-8 shadow-[0_20px_40px_rgba(55,45,37,0.06)] ring-1 ring-white/35 md:p-10"
             >
               <h2 className="font-headline mb-6 text-3xl font-extrabold tracking-tight text-on-background lg:hidden">
-                Join the Hive
+                {t("signUp.mobileTitle")}
               </h2>
 
               <form className="space-y-4" onSubmit={onSubmit}>
@@ -271,12 +273,12 @@ export function SignUpPage() {
 
                 {/* First Name */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">First Name</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.firstName")}</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Enter your first name"
+                    placeholder={t("signUp.firstNamePlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -287,12 +289,12 @@ export function SignUpPage() {
 
                 {/* Last Name */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Last Name</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.lastName")}</label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Enter your last name"
+                    placeholder={t("signUp.lastNamePlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -303,12 +305,12 @@ export function SignUpPage() {
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">University Email</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.email")}</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john@university.edu"
+                    placeholder={t("signUp.emailPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -319,7 +321,7 @@ export function SignUpPage() {
 
                 {/* Date of Birth */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Date of Birth</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.dateOfBirth")}</label>
                   <input
                     type="date"
                     value={dateOfBirth}
@@ -334,7 +336,7 @@ export function SignUpPage() {
 
                 {/* Study Level */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Study Level</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.studyLevel")}</label>
                   <select
                     value={studyLevel}
                     onChange={(e) => {
@@ -355,9 +357,9 @@ export function SignUpPage() {
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background focus:ring-2 focus:ring-primary/40"
                     required
                   >
-                    <option value="">Select...</option>
-                    <option value="secondary">Secondary</option>
-                    <option value="university">University</option>
+                    <option value="">{t("signUp.select")}</option>
+                    <option value="secondary">{t("signUp.secondary")}</option>
+                    <option value="university">{t("signUp.university")}</option>
                   </select>
                   {fieldErrors.studyLevel ? (
                     <p className="text-sm font-semibold text-on-error-container">{fieldErrors.studyLevel}</p>
@@ -366,7 +368,7 @@ export function SignUpPage() {
 
                 {/* Class Level */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Class Level</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.classLevel")}</label>
                   <select
                     value={classLevel}
                     onChange={(e) => setClassLevel(e.target.value)}
@@ -376,8 +378,8 @@ export function SignUpPage() {
                   >
                     <option value="">
                       {classLevelDisabled
-                        ? "Pick Secondary or University first"
-                        : "Select..."}
+                        ? t("signUp.pickStudyLevelFirst")
+                        : t("signUp.select")}
                     </option>
                     {classLevelOptions.map((opt) => (
                       <option key={opt} value={opt}>
@@ -392,12 +394,12 @@ export function SignUpPage() {
 
                 {/* Specialty */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Specialty</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.speciality")}</label>
                   <input
                     type="text"
                     value={speciality}
                     onChange={(e) => setSpeciality(e.target.value)}
-                    placeholder="IT, Math,Finance ..."
+                    placeholder={t("signUp.specialityPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -408,12 +410,12 @@ export function SignUpPage() {
 
                 {/* Parent Email */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Parent Email</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.parentEmail")}</label>
                   <input
                     type="email"
                     value={parentEmail}
                     onChange={(e) => setParentEmail(e.target.value)}
-                    placeholder="parent@example.com"
+                    placeholder={t("signUp.parentEmailPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
@@ -421,7 +423,7 @@ export function SignUpPage() {
 
                 {/* Parent Phone */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Parent Phone</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.parentPhone")}</label>
                   <input
                     type="text"
                     value={parentPhone}
@@ -437,7 +439,7 @@ export function SignUpPage() {
 
                 {/* Password */}
                 <div className="space-y-2 relative">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Password</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.password")}</label>
                   <input
                     type={showPw ? "text" : "password"}
                     value={password}
@@ -451,13 +453,13 @@ export function SignUpPage() {
                     onClick={() => setShowPw(!showPw)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-outline"
                   >
-                    {showPw ? "Hide" : "Show"}
+                    {showPw ? t("signUp.hide") : t("signUp.show")}
                   </button>
                 </div>
 
                 {/* Confirm Password */}
                 <div className="space-y-2">
-                  <label className="font-label block text-xs uppercase tracking-widest text-outline">Confirm Password</label>
+                  <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.confirmPassword")}</label>
                   <input
                     type={showPw ? "text" : "password"}
                     value={passwordConfirm}
@@ -478,15 +480,15 @@ export function SignUpPage() {
                     disabled={submitStatus === "loading"}
                     className="w-full rounded-full bg-gradient-primary py-3 text-lg font-bold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95"
                   >
-                    {submitStatus === "loading" ? "Creating account..." : "Sign Up"}
+                    {submitStatus === "loading" ? t("signUp.creating") : t("signUp.submit")}
                   </button>
                 </div>
               </form>
 
               <p className="mt-6 text-center text-sm text-on-surface-variant">
-                Already have an account?{" "}
+                {t("signUp.alreadyHaveAccount")} {" "}
                 <Link to="/sign-in" className="font-bold text-primary underline">
-                  Sign in
+                  {t("signUp.signIn")}
                 </Link>
               </p>
             </motion.div>
@@ -499,7 +501,7 @@ export function SignUpPage() {
           <div className="col-span-2">
             <h3 className="mb-6 text-2xl font-black tracking-tighter text-primary">StudyBee</h3>
             <p className="max-w-sm text-on-surface-variant">
-              Turning Study Time into Prime Time
+              {t("marketingFooter.tagline")}
             </p>
           </div>
 
@@ -519,7 +521,7 @@ export function SignUpPage() {
 
         <div className="mx-auto mt-8 flex max-w-7xl flex-col items-center gap-6 border-t border-outline-variant/15 pt-10 md:flex-row md:justify-between">
           <p className="text-[0.75rem] opacity-60 text-on-surface-variant">
-            © 2026 StudyBee Systems. All rights reserved.
+            {t("marketingFooter.copyright")}
           </p>
         </div>
       </footer>

@@ -1,41 +1,144 @@
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Reveal } from "../components/Reveal";
+import { MarketingFooter } from "../components/MarketingFooter";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { springSnappy } from "../motion/presets";
-import { studysessionsService } from "../services/studysessionsService";
-import type { StudySession } from "../services/studysessionsService";
-import type { StudySessionStats } from "../services/studysessionsService";
+import { Trans, useTranslation } from "react-i18next";
+import { userService } from "../services/userService";
+import { profileService } from "../services/profileService";
+import { visionService } from "../services/visionService";
+import { studysessionsService, type StudySession } from "../services/studysessionsService";
+import { Link } from "react-router-dom";
 
-function formatWhen(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown date";
-  return date.toLocaleString();
+const USER_KEY = "studybee_user";
+
+type DashboardMood = "motivated" | "tired" | "stressed";
+
+const DASHBOARD_MOOD_KEY = "studybee_dashboard_mood";
+
+const WEEKLY_GOAL_HOURS = 27;
+
+function safeDate(value: string): Date | null {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatRelativeTime(value: string, locale: string): string {
+  const d = safeDate(value);
+  if (!d) return value;
+
+  const diffMs = Date.now() - d.getTime();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  const absSeconds = Math.abs(diffSeconds);
+  if (absSeconds < 60) return rtf.format(-diffSeconds, "second");
+
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const absMinutes = Math.abs(diffMinutes);
+  if (absMinutes < 60) return rtf.format(-diffMinutes, "minute");
+
+  const diffHours = Math.round(diffMinutes / 60);
+  const absHours = Math.abs(diffHours);
+  if (absHours < 24) return rtf.format(-diffHours, "hour");
+
+  const diffDays = Math.round(diffHours / 24);
+  const absDays = Math.abs(diffDays);
+  if (absDays < 7) return rtf.format(-diffDays, "day");
+
+  const diffWeeks = Math.round(diffDays / 7);
+  return rtf.format(-diffWeeks, "week");
+}
+
+function sessionDurationMeta(minutes: number): { duration: string; kind: "deepWork" | "marathon" } {
+  const safeMinutes = Math.max(0, Math.round(minutes));
+  if (safeMinutes >= 60) {
+    const hrs = (safeMinutes / 60).toFixed(1);
+    return { duration: hrs, kind: "marathon" };
+  }
+  return { duration: String(safeMinutes), kind: "deepWork" };
+}
+
+function pickSessionIcon(subject: string): string {
+  const s = (subject || "").toLowerCase();
+  if (/(math|calc|algebra|analysis|geometry|trig)/i.test(s)) return "functions";
+  if (/(history|geo|philo|civics)/i.test(s)) return "history_edu";
+  if (/(cs|code|program|algo|python|java|js|typescript)/i.test(s)) return "code";
+  return "auto_awesome";
+}
+
+function normalizeMood(value: unknown): DashboardMood | null {
+  return value === "tired" || value === "stressed" || value === "motivated" ? value : null;
+}
+
+function loadStoredMood(): DashboardMood | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return normalizeMood(window.localStorage.getItem(DASHBOARD_MOOD_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function storeMood(mood: DashboardMood): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DASHBOARD_MOOD_KEY, mood);
+  } catch {
+    // ignore
+  }
 }
 
 export function DashboardPage() {
   const reduceMotion = useReducedMotion();
-  const navigate = useNavigate();
-  const [sessions, setSessions] = useState<StudySession[]>([]);
-  const [stats, setStats] = useState<StudySessionStats | null>(null);
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+
+  // Important: useSyncExternalStore snapshots must be referentially stable.
+  // userService.getUser() parses JSON and returns a new object each call, which can
+  // cause an infinite update loop. We subscribe to the stored JSON string instead.
+  const authUserRaw = useSyncExternalStore(
+    userService.subscribeAuth,
+    () => (typeof window === "undefined" ? null : window.localStorage.getItem(USER_KEY)),
+    () => null
+  );
+  const authUser = useMemo(() => {
+    if (!authUserRaw) return null;
+    try {
+      return JSON.parse(authUserRaw) as ReturnType<typeof userService.getUser>;
+    } catch {
+      return null;
+    }
+  }, [authUserRaw]);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const displayName = useMemo(() => {
+    const fromProfile = (profileName || "").trim();
+    if (fromProfile) return fromProfile;
+
+    const first = (authUser?.first_name || "").trim();
+    if (first) return first;
+
+    const username = (authUser?.username || "").trim();
+    return username || "";
+  }, [authUser?.first_name, authUser?.username, profileName]);
+
+  const [mood, setMood] = useState<DashboardMood>(() => loadStoredMood() ?? "motivated");
+
+  const [sessions, setSessions] = useState<StudySession[] | null>(null);
 
   useEffect(() => {
     let alive = true;
 
     (async () => {
+      if (!userService.isSignedIn()) return;
       try {
-        const [sessionsRes, statsRes] = await Promise.all([
-          studysessionsService.listMine(),
-          studysessionsService.getMyStats(),
-        ]);
+        const me = await profileService.getMe();
         if (!alive) return;
-        setSessions(sessionsRes);
-        setStats(statsRes);
+        const full = [me.first_name, me.last_name].filter(Boolean).join(" ").trim();
+        if (full) setProfileName(full);
       } catch {
-        if (!alive) return;
-        setSessions([]);
-        setStats(null);
+        // ignore
       }
     })();
 
@@ -44,23 +147,117 @@ export function DashboardPage() {
     };
   }, []);
 
-  const recentSessions = useMemo(() => sessions.slice(0, 2), [sessions]);
+  useEffect(() => {
+    let alive = true;
 
-  const subjectGraph = useMemo(() => {
-    const bySubject = new Map<string, number>();
-    sessions.forEach((session) => {
-      const key = (session.subject || "Unknown").trim() || "Unknown";
-      bySubject.set(key, (bySubject.get(key) ?? 0) + 1);
+    (async () => {
+      if (!userService.isSignedIn()) return;
+      try {
+        const res = await studysessionsService.listMine();
+        if (!alive) return;
+        setSessions(res);
+      } catch {
+        if (!alive) return;
+        setSessions([]);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const recentSessions = useMemo(() => {
+    const source = sessions ?? [];
+    const sorted = [...source].sort((a, b) => {
+      const da = safeDate(a.created_at)?.getTime() ?? 0;
+      const db = safeDate(b.created_at)?.getTime() ?? 0;
+      return db - da;
     });
-
-    const sorted = [...bySubject.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([subject, count]) => ({ subject, count }));
-
-    const max = Math.max(1, ...sorted.map((item) => item.count));
-    return { items: sorted, max };
+    return sorted.slice(0, 2);
   }, [sessions]);
+
+  const subjectsRevised = useMemo(() => {
+    const source = sessions ?? [];
+    const counts = new Map<string, number>();
+
+    for (const s of source) {
+      const subject = String(s.subject ?? "").trim();
+      if (!subject) continue;
+      counts.set(subject, (counts.get(subject) ?? 0) + 1);
+    }
+
+    const items = [...counts.entries()]
+      .map(([subject, count]) => ({ subject, count }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.subject.localeCompare(b.subject);
+      })
+      .slice(0, 4);
+
+    const max = items.reduce((m, it) => Math.max(m, it.count), 1);
+
+    return { items, max };
+  }, [sessions]);
+
+  const weeklyHours = useMemo(() => {
+    const source = sessions ?? [];
+    const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    const totalMinutes = source.reduce((sum, s) => {
+      const created = safeDate(s.created_at)?.getTime() ?? 0;
+      if (!created || created < since) return sum;
+      const minutes = typeof s.study_duration === "number" ? s.study_duration : 0;
+      return sum + Math.max(0, minutes);
+    }, 0);
+
+    return totalMinutes / 60;
+  }, [sessions]);
+
+  const weeklyHoursLabel = useMemo(() => {
+    return weeklyHours.toFixed(1);
+  }, [weeklyHours]);
+
+  const weeklyRemainingLabel = useMemo(() => {
+    const remaining = Math.max(0, WEEKLY_GOAL_HOURS - weeklyHours);
+    return remaining.toFixed(1);
+  }, [weeklyHours]);
+
+  const weeklyRing = useMemo(() => {
+    const circumference = 364.4;
+    const progress = Math.min(1, Math.max(0, weeklyHours / WEEKLY_GOAL_HOURS));
+    return {
+      circumference,
+      dashOffset: circumference * (1 - progress),
+    };
+  }, [weeklyHours]);
+
+  useEffect(() => {
+    let alive = true;
+    const stored = loadStoredMood();
+    if (stored) return;
+
+    (async () => {
+      try {
+        const status = await visionService.getFatigueStatus();
+        if (!alive) return;
+        if (status.tired) setMood("tired");
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const moodLabel =
+    mood === "tired"
+      ? t("dashboard.moodTired")
+      : mood === "stressed"
+        ? t("dashboard.moodStressed")
+        : t("dashboard.moodMotivated");
 
   return (
     <StudyBeeShell>
@@ -102,30 +299,38 @@ export function DashboardPage() {
         >
           <div className="max-w-2xl">
             <h1 className="font-headline mb-4 text-5xl font-extrabold tracking-tight text-on-surface md:text-6xl">
-              Welcome back, <span className="text-primary">Alex</span>.
+              <Trans
+                i18nKey="dashboard.welcomeBack"
+                values={{ name: displayName || "" }}
+                components={{ highlight: <span className="text-primary" /> }}
+              />
             </h1>
             <p className="font-body text-lg leading-relaxed text-on-surface-variant">
-              Your current vibe feels{" "}
+              {t("dashboard.currentVibePrefix")} {" "}
               <span className="rounded-full bg-tertiary-container px-3 py-1 font-bold text-on-tertiary-container">
-                Focused
+                {moodLabel}
               </span>
-              . You&apos;ve conquered 85% of your weekly goals.
+              . {t("dashboard.weeklyGoals", { percent: 85 })}
             </p>
           </div>
           <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
             {[
-              { icon: "mood", label: "Motivated" },
-              { icon: "sentiment_neutral", label: "Tired" },
-              { icon: "psychology", label: "Stressed" },
-            ].map((b, i) => (
+              { mood: "motivated" as const, icon: "mood", label: t("dashboard.moodMotivated") },
+              { mood: "tired" as const, icon: "sentiment_neutral", label: t("dashboard.moodTired") },
+              { mood: "stressed" as const, icon: "psychology", label: t("dashboard.moodStressed") },
+            ].map((b) => (
               <motion.button
                 key={b.label}
                 type="button"
+                onClick={() => {
+                  setMood(b.mood);
+                  storeMood(b.mood);
+                }}
                 whileHover={{ scale: 1.06, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={springSnappy}
                 className={`flex items-center gap-2 rounded-full px-6 py-3 font-label text-[10px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-transparent transition-shadow hover:shadow-md ${
-                  i === 0
+                  b.mood === mood
                     ? "bg-surface-container-highest text-on-surface ring-outline-variant/10"
                     : "bg-surface-container-low text-on-surface opacity-60 hover:opacity-90"
                 }`}
@@ -158,15 +363,14 @@ export function DashboardPage() {
                     local_fire_department
                   </span>
                   <span className="font-label text-xs uppercase tracking-widest text-white/80">
-                    Active Streak
+                    {t("dashboard.activeStreak")}
                   </span>
                 </div>
                 <div className="mb-2 font-headline text-7xl font-black">
-                  14 Days
+                  {t("dashboard.days", { count: 14 })}
                 </div>
                 <p className="font-body max-w-xs text-white/90">
-                  You&apos;re in the top 5% of students this week. Keep the
-                  momentum!
+                  {t("dashboard.topStudents")}
                 </p>
               </div>
               <div className="mt-8 flex flex-wrap gap-2">
@@ -174,13 +378,13 @@ export function DashboardPage() {
                   type="button"
                   className="rounded-full bg-white px-8 py-3 text-sm font-bold text-primary transition-all hover:scale-105 active:scale-95"
                 >
-                  Continue Study
+                  {t("dashboard.continueStudy")}
                 </button>
                 <button
                   type="button"
                   className="rounded-full bg-white/20 px-8 py-3 text-sm font-bold text-white backdrop-blur-md transition-all hover:scale-105 active:scale-95"
                 >
-                  View Milestones
+                  {t("dashboard.viewMilestones")}
                 </button>
               </div>
             </div>
@@ -210,13 +414,13 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined text-tertiary">
                   bubble_chart
                 </span>
-                Aura Trends
+                {t("dashboard.auraTrends")}
               </h3>
               <div className="space-y-4">
                 {[
-                  { label: "Calm", w: "70%", c: "bg-primary-container" },
-                  { label: "Focus", w: "85%", c: "bg-primary" },
-                  { label: "Anxiety", w: "15%", c: "bg-tertiary-container" },
+                  { label: t("dashboard.calm"), w: "70%", c: "bg-primary-container" },
+                  { label: t("dashboard.focus"), w: "85%", c: "bg-primary" },
+                  { label: t("dashboard.anxiety"), w: "15%", c: "bg-tertiary-container" },
                 ].map((r) => (
                   <div
                     key={r.label}
@@ -237,15 +441,14 @@ export function DashboardPage() {
             </div>
             <div className="mt-8 rounded-lg border-l-4 border-primary bg-surface p-4">
               <p className="font-body text-xs italic text-on-surface-variant">
-                &quot;Your focus peaks between 10 AM and 1 PM. Plan your
-                heaviest tasks then.&quot;
+                {t("dashboard.auraQuote")}
               </p>
             </div>
           </Reveal>
 
-          <Reveal className="rounded-xl bg-surface-container-high p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-6" delay={0.1}>
+          <Reveal className="rounded-xl bg-surface-container-high p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-4" delay={0.1}>
             <div className="mb-8 flex items-center justify-between">
-              <h3 className="font-headline text-xl font-bold">Performance</h3>
+              <h3 className="font-headline text-xl font-bold">{t("dashboard.performance")}</h3>
               <span className="material-symbols-outlined text-primary">
                 analytics
               </span>
@@ -261,107 +464,130 @@ export function DashboardPage() {
               <div>
                 <div className="text-2xl font-bold">92%</div>
                 <div className="font-label text-[10px] uppercase tracking-wider opacity-60">
-                  Accuracy
+                  {t("dashboard.accuracy")}
                 </div>
               </div>
               <div>
                 <div className="text-2xl font-bold">+12%</div>
                 <div className="font-label text-[10px] uppercase tracking-wider opacity-60">
-                  Improvement
+                  {t("dashboard.improvement")}
                 </div>
               </div>
             </div>
           </Reveal>
 
           <Reveal
-            className="overflow-hidden rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-6"
+            className="overflow-hidden rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-8"
             delay={0.12}
           >
             <div className="mb-6 flex items-center justify-between">
               <h3 className="font-headline text-xl font-bold">
-                Recent Flow Sessions
+                {t("dashboard.recentFlowSessions")}
               </h3>
-              <button
-                type="button"
-                onClick={() => navigate("/study")}
-                className="text-sm font-bold text-primary hover:underline"
-              >
-                View All
-              </button>
+              <Link to="/study" className="text-sm font-bold text-primary hover:underline">
+                {t("dashboard.viewAll")}
+              </Link>
             </div>
             <div className="space-y-3">
-              {recentSessions.length ? (
-                recentSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className="flex cursor-pointer items-center rounded-lg border-l-4 border-transparent bg-surface p-4 transition-all hover:translate-x-2 hover:border-primary-container"
-                  >
-                    <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container">
-                      <span className="material-symbols-outlined text-on-secondary-container">menu_book</span>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-body font-bold text-on-surface">{session.title}</h4>
-                      <p className="font-body text-xs text-on-surface-variant opacity-70">
-                        {formatWhen(session.created_at)} • {session.study_duration} min focus
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-primary">{session.subject}</div>
-                      <div className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                        {session.status}
+              {sessions && recentSessions.length ? (
+                recentSessions.map((s, index) => {
+                  const minutes = typeof s.study_duration === "number" ? s.study_duration : 0;
+                  const meta = sessionDurationMeta(minutes);
+                  const icon = pickSessionIcon(s.subject);
+                  const bubble =
+                    index % 2 === 0
+                      ? "bg-secondary-container text-on-secondary-container"
+                      : "bg-tertiary-container text-on-tertiary-container";
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex cursor-pointer items-center rounded-lg border-l-4 border-transparent bg-surface p-4 transition-all hover:translate-x-2 hover:border-primary-container"
+                    >
+                      <div className={`mr-4 flex h-12 w-12 items-center justify-center rounded-full ${bubble}`}>
+                        <span className="material-symbols-outlined">{icon}</span>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-body font-bold text-on-surface">{s.title}</h4>
+                        <p className="font-body text-xs text-on-surface-variant opacity-70">
+                          {formatRelativeTime(s.created_at, locale)} • {" "}
+                          {meta.kind === "marathon"
+                            ? t("dashboard.sessionMeta.marathon", { duration: meta.duration })
+                            : t("dashboard.sessionMeta.deepWork", { duration: meta.duration })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className="inline-flex max-w-[180px] truncate rounded-full bg-surface-container-high px-3 py-1 text-xs font-semibold text-on-surface-variant"
+                          title={s.subject}
+                        >
+                          {s.subject}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
+              ) : sessions ? (
+                <div className="rounded-lg bg-surface p-4 text-sm text-on-surface-variant">
+                  {t("dashboard.noRecentSessions")}
+                </div>
               ) : (
                 <div className="rounded-lg bg-surface p-4 text-sm text-on-surface-variant">
-                  No recent sessions yet. Start your first study session to see activity here.
+                  {t("dashboard.loadingSessions")}
                 </div>
               )}
             </div>
           </Reveal>
 
-          <Reveal className="rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-12" delay={0.11}>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-headline text-xl font-bold">Subjects Revised</h3>
-              <span className="text-xs font-semibold text-primary">
-                {subjectGraph.items.reduce((sum, item) => sum + item.count, 0)} sessions
-              </span>
-            </div>
+          <Reveal
+            className="overflow-hidden rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-12"
+            delay={0.14}
+          >
+            <h3 className="font-headline text-xl font-bold text-on-surface">
+              {t("dashboard.subjectsRevised")}
+            </h3>
 
-            {subjectGraph.items.length ? (
-              <>
-                <div className="rounded-lg bg-surface-container-high/40 p-4">
-                  <div className="mb-2 flex h-[140px] items-end justify-center gap-5 border-b border-outline-variant/20 pb-2">
-                    {subjectGraph.items.map((item) => {
-                      const stickHeight = Math.max(18, (item.count / subjectGraph.max) * 120);
-                      return (
-                        <div key={item.subject} className="group flex w-16 flex-col items-center gap-1">
-                          <span className="text-[10px] font-bold text-on-surface-variant">{item.count}</span>
-                          <div
-                            className="w-8 rounded-t-md bg-primary/80 transition-all group-hover:bg-primary"
-                            style={{ height: `${stickHeight}px` }}
-                            title={`${item.subject}: ${item.count}`}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-2 flex justify-center gap-5">
-                    {subjectGraph.items.map((item) => (
-                      <span
-                        key={item.subject}
-                        className="w-16 truncate text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
-                        title={item.subject}
-                      >
-                        {item.subject}
-                      </span>
-                    ))}
-                  </div>
+            {subjectsRevised.items.length ? (
+              <div className="mt-6 rounded-xl bg-surface-container-highest p-8 ring-1 ring-outline-variant/10">
+                <div className="flex h-44 items-end justify-center gap-10">
+                  {subjectsRevised.items.map((it, idx) => {
+                    const height = `${Math.max(8, Math.round((it.count / subjectsRevised.max) * 100))}%`;
+                    const barClass =
+                      idx === 0
+                        ? "bg-primary"
+                        : idx === 1
+                          ? "bg-primary/80"
+                          : idx === 2
+                            ? "bg-primary/65"
+                            : "bg-primary/50";
+
+                    return (
+                      <div key={it.subject} className="flex h-full w-20 flex-col items-center justify-end">
+                        <div className="mb-2 text-xs font-bold text-on-surface-variant">{it.count}</div>
+                        <div className={["w-12 rounded-t-2xl", barClass].join(" ")} style={{ height }} />
+                      </div>
+                    );
+                  })}
                 </div>
-              </>
+
+                <div className="mt-6 h-px w-full bg-outline-variant/15" />
+
+                <div className="mt-4 flex items-start justify-center gap-10">
+                  {subjectsRevised.items.map((it) => (
+                    <div
+                      key={it.subject}
+                      className="w-20 text-center text-[10px] font-bold uppercase tracking-widest text-on-surface-variant"
+                      title={it.subject}
+                    >
+                      {it.subject}
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
-              <p className="text-sm text-on-surface-variant">No subject data yet.</p>
+              <div className="mt-4 rounded-lg bg-surface p-4 text-sm text-on-surface-variant">
+                {t("dashboard.noSubjectsRevised")}
+              </div>
             )}
           </Reveal>
 
@@ -388,21 +614,21 @@ export function DashboardPage() {
                   fill="transparent"
                   stroke="currentColor"
                   strokeWidth="12"
-                  strokeDasharray="364.4"
-                  strokeDashoffset="91.1"
+                  strokeDasharray={weeklyRing.circumference}
+                  strokeDashoffset={weeklyRing.dashOffset}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-black">{stats ? stats.total_study_hours.toFixed(1) : "0.0"}</span>
+                <span className="text-2xl font-black">{weeklyHoursLabel}</span>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
-                  Hours
+                  {t("dashboard.hours")}
                 </span>
               </div>
             </div>
             <div>
-              <h3 className="font-headline mb-2 text-lg font-bold">Total Time</h3>
+              <h3 className="font-headline mb-2 text-lg font-bold">{t("dashboard.totalTime")}</h3>
               <p className="font-body text-sm text-on-surface-variant">
-                Total study time recorded from your sessions: {stats ? stats.total_study_minutes : 0} minutes.
+                {t("dashboard.totalTimeText", { remaining: weeklyRemainingLabel })}
               </p>
             </div>
           </Reveal>
@@ -423,9 +649,9 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined">edit_note</span>
               </div>
               <div>
-                <h4 className="font-bold">Log Journal Entry</h4>
+                <h4 className="font-bold">{t("dashboard.logJournalEntry")}</h4>
                 <p className="text-xs text-on-surface-variant">
-                  Reflect on today&apos;s learning journey
+                  {t("dashboard.logJournalText")}
                 </p>
               </div>
             </motion.div>
@@ -438,15 +664,17 @@ export function DashboardPage() {
                 <span className="material-symbols-outlined">lightbulb</span>
               </div>
               <div>
-                <h4 className="font-bold">Daily Study Tip</h4>
+                <h4 className="font-bold">{t("dashboard.dailyStudyTip")}</h4>
                 <p className="text-xs text-on-surface-variant">
-                  The Feynman Technique: Simplify it.
+                  {t("dashboard.dailyStudyTipText")}
                 </p>
               </div>
             </motion.div>
           </motion.div>
         </div>
       </main>
+
+      <MarketingFooter />
 
     </StudyBeeShell>
   );
