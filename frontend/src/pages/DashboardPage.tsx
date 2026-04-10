@@ -1,10 +1,66 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { springSnappy } from "../motion/presets";
+import { studysessionsService } from "../services/studysessionsService";
+import type { StudySession } from "../services/studysessionsService";
+import type { StudySessionStats } from "../services/studysessionsService";
+
+function formatWhen(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleString();
+}
 
 export function DashboardPage() {
   const reduceMotion = useReducedMotion();
+  const navigate = useNavigate();
+  const [sessions, setSessions] = useState<StudySession[]>([]);
+  const [stats, setStats] = useState<StudySessionStats | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const [sessionsRes, statsRes] = await Promise.all([
+          studysessionsService.listMine(),
+          studysessionsService.getMyStats(),
+        ]);
+        if (!alive) return;
+        setSessions(sessionsRes);
+        setStats(statsRes);
+      } catch {
+        if (!alive) return;
+        setSessions([]);
+        setStats(null);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const recentSessions = useMemo(() => sessions.slice(0, 2), [sessions]);
+
+  const subjectGraph = useMemo(() => {
+    const bySubject = new Map<string, number>();
+    sessions.forEach((session) => {
+      const key = (session.subject || "Unknown").trim() || "Unknown";
+      bySubject.set(key, (bySubject.get(key) ?? 0) + 1);
+    });
+
+    const sorted = [...bySubject.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([subject, count]) => ({ subject, count }));
+
+    const max = Math.max(1, ...sorted.map((item) => item.count));
+    return { items: sorted, max };
+  }, [sessions]);
 
   return (
     <StudyBeeShell>
@@ -187,7 +243,7 @@ export function DashboardPage() {
             </div>
           </Reveal>
 
-          <Reveal className="rounded-xl bg-surface-container-high p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-4" delay={0.1}>
+          <Reveal className="rounded-xl bg-surface-container-high p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-6" delay={0.1}>
             <div className="mb-8 flex items-center justify-between">
               <h3 className="font-headline text-xl font-bold">Performance</h3>
               <span className="material-symbols-outlined text-primary">
@@ -218,7 +274,7 @@ export function DashboardPage() {
           </Reveal>
 
           <Reveal
-            className="overflow-hidden rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-8"
+            className="overflow-hidden rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-6"
             delay={0.12}
           >
             <div className="mb-6 flex items-center justify-between">
@@ -227,58 +283,86 @@ export function DashboardPage() {
               </h3>
               <button
                 type="button"
+                onClick={() => navigate("/study")}
                 className="text-sm font-bold text-primary hover:underline"
               >
                 View All
               </button>
             </div>
             <div className="space-y-3">
-              <div className="flex cursor-pointer items-center rounded-lg border-l-4 border-transparent bg-surface p-4 transition-all hover:translate-x-2 hover:border-primary-container">
-                <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container">
-                  <span className="material-symbols-outlined text-on-secondary-container">
-                    functions
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-body font-bold text-on-surface">
-                    Advanced Calculus
-                  </h4>
-                  <p className="font-body text-xs text-on-surface-variant opacity-70">
-                    2 hours ago • 45 min deep work
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-primary">+240 XP</div>
-                  <div className="flex justify-end gap-1">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
+              {recentSessions.length ? (
+                recentSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="flex cursor-pointer items-center rounded-lg border-l-4 border-transparent bg-surface p-4 transition-all hover:translate-x-2 hover:border-primary-container"
+                  >
+                    <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container">
+                      <span className="material-symbols-outlined text-on-secondary-container">menu_book</span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-body font-bold text-on-surface">{session.title}</h4>
+                      <p className="font-body text-xs text-on-surface-variant opacity-70">
+                        {formatWhen(session.created_at)} • {session.study_duration} min focus
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-primary">{session.subject}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                        {session.status}
+                      </div>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="rounded-lg bg-surface p-4 text-sm text-on-surface-variant">
+                  No recent sessions yet. Start your first study session to see activity here.
                 </div>
-              </div>
-              <div className="flex cursor-pointer items-center rounded-lg border-l-4 border-transparent bg-surface p-4 transition-all hover:translate-x-2 hover:border-primary-container">
-                <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-container">
-                  <span className="material-symbols-outlined text-on-tertiary-container">
-                    history_edu
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-body font-bold text-on-surface">
-                    Modern World History
-                  </h4>
-                  <p className="font-body text-xs text-on-surface-variant opacity-70">
-                    Yesterday • 1.5 hr marathon
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-primary">+450 XP</div>
-                  <div className="flex justify-end gap-1">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
+          </Reveal>
+
+          <Reveal className="rounded-xl bg-surface-container-low p-6 shadow-sm transition-shadow hover:shadow-md md:col-span-12" delay={0.11}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-headline text-xl font-bold">Subjects Revised</h3>
+              <span className="text-xs font-semibold text-primary">
+                {subjectGraph.items.reduce((sum, item) => sum + item.count, 0)} sessions
+              </span>
+            </div>
+
+            {subjectGraph.items.length ? (
+              <>
+                <div className="rounded-lg bg-surface-container-high/40 p-4">
+                  <div className="mb-2 flex h-[140px] items-end justify-center gap-5 border-b border-outline-variant/20 pb-2">
+                    {subjectGraph.items.map((item) => {
+                      const stickHeight = Math.max(18, (item.count / subjectGraph.max) * 120);
+                      return (
+                        <div key={item.subject} className="group flex w-16 flex-col items-center gap-1">
+                          <span className="text-[10px] font-bold text-on-surface-variant">{item.count}</span>
+                          <div
+                            className="w-8 rounded-t-md bg-primary/80 transition-all group-hover:bg-primary"
+                            style={{ height: `${stickHeight}px` }}
+                            title={`${item.subject}: ${item.count}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex justify-center gap-5">
+                    {subjectGraph.items.map((item) => (
+                      <span
+                        key={item.subject}
+                        className="w-16 truncate text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                        title={item.subject}
+                      >
+                        {item.subject}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-on-surface-variant">No subject data yet.</p>
+            )}
           </Reveal>
 
           <Reveal
@@ -309,7 +393,7 @@ export function DashboardPage() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-black">24.5</span>
+                <span className="text-2xl font-black">{stats ? stats.total_study_hours.toFixed(1) : "0.0"}</span>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">
                   Hours
                 </span>
@@ -318,8 +402,7 @@ export function DashboardPage() {
             <div>
               <h3 className="font-headline mb-2 text-lg font-bold">Total Time</h3>
               <p className="font-body text-sm text-on-surface-variant">
-                This week&apos;s investment in yourself. You are 2.5 hours away
-                from your goal!
+                Total study time recorded from your sessions: {stats ? stats.total_study_minutes : 0} minutes.
               </p>
             </div>
           </Reveal>

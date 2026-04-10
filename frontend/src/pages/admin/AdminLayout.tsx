@@ -42,6 +42,7 @@ export function AdminLayout() {
             <nav className="flex flex-col gap-2">
               <SideLink to="/admin" label="Stats" end />
               <SideLink to="/admin/users" label="User management" />
+              <SideLink to="/admin/sessions" label="Session management" />
 
               <div className="mt-3 border-t border-outline-variant/15 pt-3">
                 <button
