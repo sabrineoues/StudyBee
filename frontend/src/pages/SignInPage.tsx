@@ -153,12 +153,12 @@ export function SignInPage() {
                     >
                       Password
                     </label>
-                    <a
-                      href="#"
+                    <Link
+                      to="/reset-password"
                       className="text-xs font-semibold text-primary hover:underline"
                     >
                       Forgot?
-                    </a>
+                    </Link>
                   </div>
                   <div className="relative">
                     <input

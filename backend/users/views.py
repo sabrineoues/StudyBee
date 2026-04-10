@@ -1,4 +1,11 @@
+import logging
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -9,11 +16,45 @@ from .serializers import (
     AdminUserCreateSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     StudentSignUpSerializer,
     StudentProfileMeSerializer,
 )
 
 from .models import StudentProfile
+
+
+logger = logging.getLogger(__name__)
+
+
+def _build_password_reset_url(*, uidb64: str, token: str) -> str:
+    base = (getattr(settings, "FRONTEND_URL", "") or "").rstrip("/")
+    if not base:
+        return ""
+    return f"{base}/reset-password?uid={uidb64}&token={token}"
+
+
+def _compose_password_reset_email(*, reset_url: str, language: str | None = None) -> tuple[str, str]:
+    lang = (language or "en").lower()
+    if lang == "fr":
+        subject = "Réinitialisation de votre mot de passe StudyBee"
+        message = (
+            "Bonjour,\n\n"
+            "Vous avez demandé la réinitialisation de votre mot de passe StudyBee.\n"
+            f"Pour choisir un nouveau mot de passe, cliquez sur ce lien :\n{reset_url}\n\n"
+            "Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet email.\n"
+        )
+        return subject, message
+
+    subject = "Reset your StudyBee password"
+    message = (
+        "Hi,\n\n"
+        "We received a request to reset your StudyBee password.\n"
+        f"Use this link to choose a new password:\n{reset_url}\n\n"
+        "If you did not request this, you can ignore this email.\n"
+    )
+    return subject, message
 
 
 class StudentSignUpAPIView(APIView):
@@ -239,3 +280,69 @@ class ProfileAPIView(APIView):
         user = request.user
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class PasswordResetRequestAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = (serializer.validated_data.get("email") or "").strip()
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        reset_url = None
+
+        debug_email_error: str | None = None
+
+        if user:
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_url = _build_password_reset_url(uidb64=uidb64, token=token)
+
+            profile_lang = (
+                StudentProfile.objects.filter(user=user).values_list("language", flat=True).first()
+                if reset_url
+                else None
+            )
+            subject, message = _compose_password_reset_email(reset_url=reset_url or "", language=profile_lang)
+
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as exc:
+                # Do not leak whether the account exists.
+                logger.exception("Password reset email send failed")
+                if getattr(settings, "DEBUG", False):
+                    debug_email_error = str(exc)
+
+        payload = {
+            "detail": "If an account exists for this email, a reset link has been sent.",
+        }
+        if getattr(settings, "DEBUG", False):
+            if reset_url:
+                payload["debug_reset_url"] = reset_url
+            if debug_email_error:
+                payload["debug_email_error"] = debug_email_error
+            payload["debug_email_backend"] = getattr(settings, "EMAIL_BACKEND", "")
+            payload["debug_email_host"] = getattr(settings, "EMAIL_HOST", "")
+            payload["debug_email_port"] = getattr(settings, "EMAIL_PORT", None)
+            payload["debug_default_from_email"] = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmAPIView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Password has been reset."}, status=status.HTTP_200_OK)
