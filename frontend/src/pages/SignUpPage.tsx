@@ -4,10 +4,11 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { userService } from "../services/userService";
+import { COUNTRY_CODES } from "../components/countryCodes";
 
 const NAME_REGEX = /^[A-Za-zÀ-ÿ\s'-]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PARENT_PHONE_REGEX = /^\+216\d{8}$/;
+
 
 const SECONDARY_CLASS_LEVELS = ["1st year", "2nd year", "3rd year", "4th year"] as const;
 const UNIVERSITY_CLASS_LEVELS = [
@@ -59,6 +60,7 @@ export function SignUpPage() {
   const [speciality, setSpeciality] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
+  const [parentCountryCode, setParentCountryCode] = useState("+216");
 
   const classLevelOptions =
     studyLevel === "secondary"
@@ -85,6 +87,7 @@ export function SignUpPage() {
     const trimmedLastName = lastName.trim();
     const trimmedEmail = email.trim();
     const trimmedParentPhone = parentPhone.trim();
+
     const trimmedSpeciality = speciality.trim();
 
     const nextErrors: typeof fieldErrors = {};
@@ -108,7 +111,8 @@ export function SignUpPage() {
     if (!classLevel || !classLevelOptions.includes(classLevel as never)) {
       nextErrors.classLevel = t("signUp.errors.chooseClassLevel");
     }
-    if (!trimmedParentPhone || !PARENT_PHONE_REGEX.test(trimmedParentPhone)) {
+    // Validate phone: must be digits and length appropriate for the country
+    if (!trimmedParentPhone || !/^\d{8,15}$/.test(trimmedParentPhone)) {
       nextErrors.parentPhone = t("signUp.errors.invalidParentPhone");
     }
     if (!trimmedSpeciality) {
@@ -141,7 +145,7 @@ export function SignUpPage() {
       class_level: classLevel,
       speciality: trimmedSpeciality,
       parent_email: parentEmail,
-      parent_phone: trimmedParentPhone,
+      parent_phone: parentCountryCode + trimmedParentPhone,
     };
 
     try {
@@ -277,7 +281,10 @@ export function SignUpPage() {
                   <input
                     type="text"
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    onChange={e => {
+                      // Lettres, espaces, apostrophes, tirets uniquement
+                      setFirstName(e.target.value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, ""));
+                    }}
                     placeholder={t("signUp.firstNamePlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
@@ -293,7 +300,9 @@ export function SignUpPage() {
                   <input
                     type="text"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    onChange={e => {
+                      setLastName(e.target.value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, ""));
+                    }}
                     placeholder={t("signUp.lastNamePlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
@@ -309,7 +318,10 @@ export function SignUpPage() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={e => {
+                      // Empêcher les espaces
+                      setEmail(e.target.value.replace(/\s/g, ""));
+                    }}
                     placeholder={t("signUp.emailPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
@@ -398,7 +410,10 @@ export function SignUpPage() {
                   <input
                     type="text"
                     value={speciality}
-                    onChange={(e) => setSpeciality(e.target.value)}
+                    onChange={e => {
+                      // Lettres, espaces, apostrophes, tirets uniquement
+                      setSpeciality(e.target.value.replace(/[^A-Za-zÀ-ÿ\s'-]/g, ""));
+                    }}
                     placeholder={t("signUp.specialityPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
@@ -414,24 +429,50 @@ export function SignUpPage() {
                   <input
                     type="email"
                     value={parentEmail}
-                    onChange={(e) => setParentEmail(e.target.value)}
+                    onChange={e => {
+                      setParentEmail(e.target.value.replace(/\s/g, ""));
+                    }}
                     placeholder={t("signUp.parentEmailPlaceholder")}
                     className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
                     required
                   />
                 </div>
 
-                {/* Parent Phone */}
+                {/* Parent Phone with Country Code */}
                 <div className="space-y-2">
                   <label className="font-label block text-xs uppercase tracking-widest text-outline">{t("signUp.parentPhone")}</label>
-                  <input
-                    type="text"
-                    value={parentPhone}
-                    onChange={(e) => setParentPhone(e.target.value)}
-                    placeholder="+21600000000"
-                    className="w-full rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={parentCountryCode}
+                      onChange={e => setParentCountryCode(e.target.value)}
+                      className="rounded-md border-none bg-surface-container-highest py-3 px-2 text-on-background focus:ring-2 focus:ring-primary/40"
+                      style={{ minWidth: 90 }}
+                    >
+                      {COUNTRY_CODES.map(({ code, name }) => (
+                        <option key={code} value={code}>{code} {name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={parentPhone}
+                      onChange={e => {
+                        // Contrôle de saisie : chiffres uniquement, longueur max selon le pays
+                        let maxLen = 15;
+                        if (parentCountryCode === "+216") maxLen = 8;
+                        else if (parentCountryCode === "+213" || parentCountryCode === "+212") maxLen = 9;
+                        else if (parentCountryCode === "+33") maxLen = 9;
+                        else if (parentCountryCode === "+1") maxLen = 10;
+                        else if (parentCountryCode === "+44") maxLen = 10;
+                        else if (parentCountryCode === "+49") maxLen = 11;
+                        const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, maxLen);
+                        setParentPhone(onlyDigits);
+                      }}
+                      placeholder={parentCountryCode + " 00000000"}
+                      className="flex-1 rounded-md border-none bg-surface-container-highest py-3 px-4 text-on-background placeholder:text-outline/60 focus:ring-2 focus:ring-primary/40"
+                      required
+                      maxLength={15}
+                    />
+                  </div>
                   {fieldErrors.parentPhone ? (
                     <p className="text-sm font-semibold text-on-error-container">{fieldErrors.parentPhone}</p>
                   ) : null}

@@ -217,6 +217,7 @@ export function SettingsPage() {
       const updated = await profileService.updateMe({ language: next });
       setProfile(updated);
       await i18n.changeLanguage(next);
+      window.location.reload();
     } catch {
       setLanguageError(t("settings.appLanguage.saveError"));
     } finally {
