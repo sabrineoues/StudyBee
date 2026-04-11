@@ -12,7 +12,6 @@ export function SignInPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
 
@@ -164,22 +163,13 @@ export function SignInPage() {
                   <div className="relative">
                     <input
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 pr-20 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
+                      className="w-full rounded-md border-none bg-surface-container-highest px-5 py-4 text-on-surface placeholder:text-outline/60 transition-all focus:ring-2 focus:ring-primary/40"
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? t("signIn.hidePassword") : t("signIn.showPassword")}
-                      aria-pressed={showPassword}
-                      className="absolute inset-y-0 right-2 my-2 rounded-md px-3 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      {showPassword ? t("signIn.hide") : t("signIn.show")}
-                    </button>
                   </div>
                 </div>
                 <button

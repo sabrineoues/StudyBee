@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { userService } from "../services/userService";
@@ -21,6 +21,21 @@ const UNIVERSITY_CLASS_LEVELS = [
   "2nd master",
 ] as const;
 
+const CLASS_LEVEL_LABEL_KEY_BY_VALUE: Record<string, string> = {
+  "1st year": "signUp.classLevels.secondary.y1",
+  "2nd year": "signUp.classLevels.secondary.y2",
+  "3rd year": "signUp.classLevels.secondary.y3",
+  "4th year": "signUp.classLevels.secondary.y4",
+
+  "1st year university": "signUp.classLevels.university.y1",
+  "2nd year university": "signUp.classLevels.university.y2",
+  "3rd year university": "signUp.classLevels.university.y3",
+  "4th year university": "signUp.classLevels.university.y4",
+  "5th year university": "signUp.classLevels.university.y5",
+  "1st master": "signUp.classLevels.university.m1",
+  "2nd master": "signUp.classLevels.university.m2",
+};
+
 function isValidDateIso(dateIso: string): boolean {
   if (!dateIso) return false;
   const parts = dateIso.split("-").map((x) => Number(x));
@@ -40,6 +55,7 @@ function isValidDateIso(dateIso: string): boolean {
 
 export function SignUpPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [showPw, setShowPw] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -152,9 +168,8 @@ export function SignUpPage() {
       const result = await userService.signUp(payload);
       console.log("Sign Up success:", result);
       setSubmitStatus("success");
-      setSubmitMessage(
-        typeof result?.message === "string" ? result.message : t("signUp.messages.created")
-      );
+      setSubmitMessage(typeof result?.message === "string" ? result.message : t("signUp.messages.created"));
+      navigate("/sign-in", { replace: true });
     } catch (err) {
       console.error("Sign Up failed:", err);
       const maybeAny = err as {
@@ -395,7 +410,10 @@ export function SignUpPage() {
                     </option>
                     {classLevelOptions.map((opt) => (
                       <option key={opt} value={opt}>
-                        {opt}
+                        {(() => {
+                          const labelKey = CLASS_LEVEL_LABEL_KEY_BY_VALUE[opt];
+                          return labelKey ? t(labelKey) : opt;
+                        })()}
                       </option>
                     ))}
                   </select>
@@ -492,9 +510,16 @@ export function SignUpPage() {
                   <button
                     type="button"
                     onClick={() => setShowPw(!showPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline"
+                    aria-label={showPw ? t("signUp.hide") : t("signUp.show")}
+                    title={showPw ? t("signUp.hide") : t("signUp.show")}
+                    className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-outline transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
-                    {showPw ? t("signUp.hide") : t("signUp.show")}
+                    <span
+                      className="material-symbols-outlined text-[20px] leading-none"
+                      style={{ fontVariationSettings: "'FILL' 0" }}
+                    >
+                      {showPw ? "visibility_off" : "visibility"}
+                    </span>
                   </button>
                 </div>
 

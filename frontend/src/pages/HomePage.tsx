@@ -1,11 +1,14 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import { AmbientOrbs } from "../components/AmbientOrbs";
 import { MarketingFooter } from "../components/MarketingFooter";
 import { Reveal } from "../components/Reveal";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { useTranslation } from "react-i18next";
+import { homeStatsService, type HomeStats } from "../services/homeStatsService";
+import { ratingsService, type RatingsSummary } from "../services/ratingsService";
+import { userService } from "../services/userService";
 import {
   hoverLift,
   springSnappy,
@@ -65,11 +68,18 @@ const moodFeedback: Record<
   },
 };
 
-const stats = [
-  { num: "5k+", key: "studentsSupported" },
-  { num: "1M", key: "studyHoursGuided" },
-  { num: "4.7/5", key: "userRating" },
-] as const;
+function formatCompactInt(value: number): string {
+  const n = Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
+  if (n >= 1_000_000) {
+    const m = Math.floor(n / 1_000_000);
+    return n % 1_000_000 === 0 ? `${m}M` : `${m}M+`;
+  }
+  if (n >= 1_000) {
+    const k = Math.floor(n / 1_000);
+    return n % 1_000 === 0 ? `${k}k` : `${k}k+`;
+  }
+  return String(n);
+}
 
 const pillars = [
   { titleKey: "home.about.pillars.clarityTitle", textKey: "home.about.pillars.clarityText" },
@@ -81,8 +91,112 @@ export function HomePage() {
   const shouldReduceMotion = useReducedMotion();
   const { t } = useTranslation();
   const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+
+  const isSignedIn = useSyncExternalStore(
+    userService.subscribeAuth,
+    userService.isSignedIn,
+    () => false,
+  );
+
+  const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
+  const [loadingHomeStats, setLoadingHomeStats] = useState(true);
+
+  const [ratings, setRatings] = useState<RatingsSummary | null>(null);
+  const [loadingRatings, setLoadingRatings] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setLoadingHomeStats(true);
+      try {
+        const data = await homeStatsService.get();
+        if (!alive) return;
+        setHomeStats(data);
+      } catch {
+        if (!alive) return;
+        setHomeStats(null);
+      } finally {
+        if (alive) setLoadingHomeStats(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setLoadingRatings(true);
+      try {
+        const summary = await ratingsService.getSummary();
+        if (!alive) return;
+        setRatings(summary);
+      } catch {
+        if (!alive) return;
+        setRatings(null);
+      } finally {
+        if (alive) setLoadingRatings(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [isSignedIn]);
+
+  const averageRating = useMemo(() => {
+    const avg = ratings?.average;
+    return typeof avg === "number" && Number.isFinite(avg) ? avg : 0;
+  }, [ratings?.average]);
+
+  const myRating = useMemo(() => {
+    const mine = ratings?.my_rating;
+    if (typeof mine === "number" && Number.isFinite(mine) && mine >= 1 && mine <= 5) return mine;
+    return null;
+  }, [ratings?.my_rating]);
+
+  async function onRate(next: number) {
+    if (!isSignedIn) return;
+    if (next < 1 || next > 5) return;
+    try {
+      const summary = await ratingsService.setMyRating(next);
+      setRatings(summary);
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    if (!isRatingModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsRatingModalOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isRatingModalOpen]);
 
   const feedback = selectedMood ? moodFeedback[selectedMood] : null;
+
+  const stats = useMemo(
+    () => [
+      {
+        key: "studentsSupported",
+        num: loadingHomeStats
+          ? "—"
+          : formatCompactInt(homeStats?.students_supported ?? 0),
+      },
+      {
+        key: "studyHoursGuided",
+        num: loadingHomeStats
+          ? "—"
+          : formatCompactInt(Math.round(homeStats?.study_hours_guided ?? 0)),
+      },
+    ] as const,
+    [homeStats?.students_supported, homeStats?.study_hours_guided, loadingHomeStats],
+  );
 
   return (
     <StudyBeeShell>
@@ -155,10 +269,7 @@ export function HomePage() {
                   </motion.a>
                 </motion.div>
 
-                <motion.div
-                  variants={staggerItem}
-                  className="grid gap-4 pt-4 sm:grid-cols-3"
-                >
+                <motion.div variants={staggerItem} className="grid gap-4 pt-4 sm:grid-cols-3">
                   {stats.map((item) => (
                     <div
                       key={item.key}
@@ -170,6 +281,44 @@ export function HomePage() {
                       </p>
                     </div>
                   ))}
+
+                  {/* Average rating (read-only) */}
+                  <div className="rounded-2xl border border-outline-variant/15 bg-surface-container-low px-5 py-4 shadow-sm">
+                    <p className="text-2xl font-black text-primary">
+                      {loadingRatings ? "—" : averageRating ? `${averageRating.toFixed(1)}/5` : "0.0/5"}
+                    </p>
+                    <div className="mt-2 flex items-center gap-1" aria-label={t("home.stats.averageRating")}>
+                      {Array.from({ length: 5 }, (_, idx) => {
+                        const star = idx + 1;
+                        const full = averageRating >= star;
+                        const half = !full && averageRating >= star - 0.5;
+                        const empty = !full && !half;
+
+                        const cls = !empty ? "text-tertiary-container" : "text-outline-variant/60";
+                        const iconName = half ? "star_half" : "star";
+
+                        return (
+                          <span
+                            key={star}
+                            className={`material-symbols-outlined text-[22px] leading-none ${cls}`}
+                            style={{ fontVariationSettings: empty ? "'FILL' 0" : "'FILL' 1" }}
+                          >
+                            {iconName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsRatingModalOpen(true)}
+                      className="mt-2 text-left text-xs font-semibold text-primary underline underline-offset-4"
+                    >
+                      {t("home.stats.addYourRating")}
+                    </button>
+                    <p className="mt-1 text-xs uppercase tracking-widest text-on-surface-variant">
+                      {t("home.stats.averageRating")}
+                    </p>
+                  </div>
                 </motion.div>
               </motion.div>
 
@@ -422,6 +571,69 @@ export function HomePage() {
               </motion.div>
             </Reveal>
           </section>
+          {isRatingModalOpen ? (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center px-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rate-studybee-title"
+            >
+              <button
+                type="button"
+                onClick={() => setIsRatingModalOpen(false)}
+                aria-label={t("home.stats.closeRatingPopup")}
+                className="absolute inset-0 bg-surface/70 backdrop-blur-sm"
+              />
+
+              <div className="relative w-full max-w-sm rounded-2xl border border-outline-variant/15 bg-surface-container-low p-6 shadow-xl">
+                <div className="flex items-start justify-between gap-4">
+                  <h2 id="rate-studybee-title" className="text-lg font-bold text-on-background">
+                    {t("home.stats.rateTitle")}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsRatingModalOpen(false)}
+                    aria-label={t("home.stats.closeRatingPopup")}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      close
+                    </span>
+                  </button>
+                </div>
+
+                {isSignedIn ? (
+                  <div className="mt-4 flex items-center gap-1" aria-label={t("home.stats.yourRating")}>
+                    {Array.from({ length: 5 }, (_, idx) => {
+                      const star = idx + 1;
+                      const filled = (myRating ?? 0) >= star;
+                      const cls = filled ? "text-tertiary-container" : "text-outline-variant/60";
+
+                      return (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => void onRate(star)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-surface-container-highest/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[26px] leading-none ${cls}`}
+                            style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            star
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-on-surface-variant">
+                    {t("home.stats.signInToRate")} <Link to="/sign-in" className="font-semibold text-primary underline underline-offset-4">{t("nav.signIn")}</Link>
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
         </main>
 
         <MarketingFooter />

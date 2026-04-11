@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'journal',
     'studysessions',
     'todolist',
+    'ratings',
     'vision',
     'rest_framework',
     ]
@@ -156,7 +157,7 @@ EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("DJANGO_EMAIL_USE_TLS", "1") == "1"
 EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "apikey" if _email_backend_is_smtp else "")
 EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL", "StudyBee <no-reply@studybee.local>")
+DEFAULT_FROM_EMAIL = os.getenv("DJANGO_DEFAULT_FROM_EMAIL", "StudyBee <youraddress@gmail.com>")
 
 # Frontend URL used for links in emails
 FRONTEND_URL = os.getenv("STUDYBEE_FRONTEND_URL", "http://localhost:5173")

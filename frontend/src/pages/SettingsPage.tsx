@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { profileService, type StudentProfileMe } from "../services/profileService";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
-import { normalizeLanguage, type LanguageCode } from "../i18n/language";
+import { normalizeLanguage, storeLanguage, type LanguageCode } from "../i18n/language";
 
 const FLAG_EN =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuA7CA6jr2dtq6NjgNy7IwGwt6BoyNFt9w33lFkXuI91BNlqnEivew2ueqQ3xv7O2lKwZLuowd4N2ABS8bQ4Nae9XCPudhWQe18n1gRpRPZfTdxxsxbyjlzMwhIMC86nHI7dclrawRnzz8cB7mRmkKOxd26sNehQkUf7yL5YGiauvnrRek_2Jn9T4Z4Ix-6NAUwpHXoPSm6FeZs633GknBNy2EoZMMyPJr6__gzStJczzTA9SfrifoV66xlgCh15CbfkMOrPOx40OTE";
@@ -162,7 +162,7 @@ export function SettingsPage() {
         setMicAccess(Boolean(me.microphone_access_enabled));
       } catch {
         if (!alive) return;
-        setLanguageError(t("settings.appLanguage.loadError"));
+        setLanguageError(i18n.t("settings.appLanguage.loadError"));
       } finally {
         if (alive) setLoadingProfile(false);
       }
@@ -171,11 +171,11 @@ export function SettingsPage() {
     return () => {
       alive = false;
     };
-  }, [t]);
+  }, []);
 
   const language = useMemo(() => {
-    return normalizeLanguage(profile?.language);
-  }, [profile?.language]);
+    return normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
+  }, [i18n.resolvedLanguage, i18n.language]);
 
   const parentDetails = useMemo(() => {
     const email = (profile?.parent_email ?? "").trim();
@@ -204,21 +204,24 @@ export function SettingsPage() {
     return { email, phone, hasParent, displayName, initials };
   }, [profile?.parent_email, profile?.parent_phone, t]);
 
-  useEffect(() => {
-    if (loadingProfile) return;
-    void i18n.changeLanguage(language);
-  }, [language, loadingProfile]);
-
   async function setLanguage(next: LanguageCode) {
     if (loadingProfile) return;
+    if (next === language) return;
     setLanguageError(null);
     setSavingLanguage(next);
     try {
-      const updated = await profileService.updateMe({ language: next });
-      setProfile(updated);
       await i18n.changeLanguage(next);
-      window.location.reload();
+      storeLanguage(next);
+
+      // Best-effort sync to the backend profile (do not block UI like the navbar toggle).
+      try {
+        const updated = await profileService.updateMe({ language: next });
+        setProfile(updated);
+      } catch {
+        // ignore
+      }
     } catch {
+      // If i18n change fails (rare), show the existing translated error.
       setLanguageError(t("settings.appLanguage.saveError"));
     } finally {
       setSavingLanguage(null);

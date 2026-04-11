@@ -73,10 +73,26 @@ export function TopNavbarSignIn() {
       <div className="flex items-center gap-10">
         <NavLink
           to="/"
-          className="font-headline text-2xl font-black tracking-tighter text-primary"
+          className="inline-flex items-center"
           end
         >
-          StudyBee
+          <img
+            src="/studybee-logo.png"
+            alt="StudyBee"
+            className="h-16 w-auto select-none"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = "none";
+              const fallback = target.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = "block";
+            }}
+          />
+          <span
+            className="font-headline text-2xl font-black tracking-tighter text-primary"
+            style={{ display: "none" }}
+          >
+            StudyBee
+          </span>
         </NavLink>
 
         <div className="hidden items-center gap-8 md:flex">

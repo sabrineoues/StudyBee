@@ -9,10 +9,11 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Sum
 
 from .serializers import (
     AdminUserCreateSerializer,
@@ -148,6 +149,33 @@ class AdminStatsAPIView(APIView):
             {
                 "users_total": User.objects.count(),
                 "users_staff": User.objects.filter(is_staff=True).count(),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class HomeStatsAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from studysessions.models import StudySession
+
+        students_supported = StudentProfile.objects.count()
+        total_minutes = (
+            StudySession.objects.filter(status="completed")
+            .aggregate(total=Sum("study_duration"))
+            .get("total")
+            or 0
+        )
+        total_minutes = int(total_minutes)
+        total_hours = float(total_minutes) / 60.0
+
+        return Response(
+            {
+                "students_supported": students_supported,
+                "study_minutes_guided": total_minutes,
+                "study_hours_guided": round(total_hours, 1),
             },
             status=status.HTTP_200_OK,
         )

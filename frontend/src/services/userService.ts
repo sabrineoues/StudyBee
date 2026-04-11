@@ -7,6 +7,13 @@ const REFRESH_TOKEN_KEY = "studybee_refresh_token";
 const USER_KEY = "studybee_user";
 const AUTH_CHANGED_EVENT = "studybee-auth-changed";
 
+type AxiosRequestConfigWithRetry = Parameters<(typeof axios)["request"]>[0] & {
+  _studybeeRetried?: boolean;
+  _studybeeSkipRefresh?: boolean;
+};
+
+let refreshPromise: Promise<string | null> | null = null;
+
 function notifyAuthChanged() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
@@ -17,6 +24,35 @@ function setAxiosAuthToken(token: string | null) {
     axios.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     delete axios.defaults.headers.common.Authorization;
+  }
+}
+
+function getRefreshToken() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const refresh = getRefreshToken();
+  if (!refresh) return null;
+
+  const baseUrl = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+  try {
+    const response = await axios.post(
+      `${baseUrl}token/refresh/`,
+      { refresh },
+      { _studybeeSkipRefresh: true } as AxiosRequestConfigWithRetry,
+    );
+    const data = response.data as { access?: string };
+    const access = data?.access;
+    if (!access) return null;
+    window.localStorage.setItem(ACCESS_TOKEN_KEY, access);
+    setAxiosAuthToken(access);
+    notifyAuthChanged();
+    return access;
+  } catch {
+    return null;
   }
 }
 
@@ -32,6 +68,36 @@ if (!(axios.defaults as unknown as { __studybeeAuthInterceptor?: boolean }).__st
     }
     return config;
   });
+
+  axios.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      const originalConfig = ((error as { config?: AxiosRequestConfigWithRetry })?.config ?? null) as AxiosRequestConfigWithRetry | null;
+
+      if (!originalConfig || status !== 401) throw error;
+      if (originalConfig._studybeeSkipRefresh) throw error;
+      if (originalConfig._studybeeRetried) throw error;
+
+      originalConfig._studybeeRetried = true;
+
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+
+      const newAccess = await refreshPromise;
+      if (!newAccess) {
+        userService.signOut();
+        throw error;
+      }
+
+      originalConfig.headers = originalConfig.headers ?? {};
+      (originalConfig.headers as Record<string, string>).Authorization = `Bearer ${newAccess}`;
+      return axios.request(originalConfig);
+    },
+  );
 }
 
 // Restore token on app load (best-effort)

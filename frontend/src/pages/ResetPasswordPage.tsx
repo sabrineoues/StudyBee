@@ -79,6 +79,14 @@ export function ResetPasswordPage() {
       const maybeAny = err as { response?: { data?: unknown }; message?: unknown };
       const data = maybeAny?.response?.data as unknown;
 
+      const msgFromFieldArrays =
+        data && typeof data === "object" && !Array.isArray(data)
+          ? Object.values(data as Record<string, unknown>)
+              .flatMap((v) => (Array.isArray(v) ? v : []))
+              .filter((v): v is string => typeof v === "string")
+              .join("\n")
+          : null;
+
       const msgFromApi =
         data && typeof data === "object" && !Array.isArray(data)
           ? typeof (data as { detail?: unknown }).detail === "string"
@@ -93,6 +101,7 @@ export function ResetPasswordPage() {
       setStatus("error");
       setMessage(
         msgFromApi ??
+          (msgFromFieldArrays && msgFromFieldArrays.trim().length > 0 ? msgFromFieldArrays : null) ??
           (typeof maybeAny?.message === "string" ? maybeAny.message : "Could not reset password. Try again."),
       );
     }
