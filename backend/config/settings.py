@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'todolist',
     'ratings',
     'vision',
+    'cognitive',
     'rest_framework',
     ]
 

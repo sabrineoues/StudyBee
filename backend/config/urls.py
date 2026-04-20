@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/', include('studysessions.urls')),
     path('api/', include('ratings.urls')),
     path('api/vision/', include('vision.urls')),
+    path('api/cognitive/', include('cognitive.urls')),
 ]
 
 if settings.DEBUG:
