@@ -8,6 +8,7 @@ import { StudyPage } from './pages/StudyPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { TipsPage } from './pages/TipsPage';
+import { CognitiveTrainingPage } from './pages/CognitiveTrainingPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -151,6 +152,14 @@ function AppInner() {
           element={
             <RequireAuth>
               <TipsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/cognitive"
+          element={
+            <RequireAuth>
+              <CognitiveTrainingPage />
             </RequireAuth>
           }
         />

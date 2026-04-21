@@ -102,6 +102,7 @@ export function TopNavbarSignIn() {
           <NavItem to="/dashboard" label={t("nav.dashboard")} />
           <NavItem to="/settings" label={t("nav.settings")} />
           <NavItem to="/tips" label={t("nav.tips")} />
+          <NavItem to="/cognitive" label="Brain Training" />
         </div>
       </div>
 
