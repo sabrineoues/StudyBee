@@ -1,6 +1,6 @@
 /* ── Cognitive Training Page ────────────────────────────────────────────── */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StudyBeeShell } from "../components/StudyBeeShell";
 import { CognitiveDashboard } from "../components/cognitive/CognitiveDashboard";
@@ -9,6 +9,7 @@ import { NBackEngine } from "../components/cognitive/NBackEngine";
 import { SchulteEngine } from "../components/cognitive/SchulteEngine";
 import { KakuroEngine } from "../components/cognitive/KakuroEngine";
 import { cognitiveService } from "../services/cognitiveService";
+import { useCamera } from "../components/cognitive/useCamera";
 import type {
   SessionStartResponse,
   SessionCompleteResponse,
@@ -33,6 +34,7 @@ export function CognitiveTrainingPage() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const dashboardKeyRef = useRef(0);
+  const { start: startCamera, stop: stopCamera } = useCamera();
 
   const handleStartTask = useCallback(async (slug: string) => {
     setStarting(true);
@@ -79,6 +81,25 @@ export function CognitiveTrainingPage() {
     setView("dashboard");
     dashboardKeyRef.current++;
   }, []);
+
+  // Turn camera on when entering a playing session and turn it off when leaving.
+  useEffect(() => {
+    (async () => {
+      if (view === "playing" && session) {
+        try {
+          await startCamera();
+        } catch (e) {
+          // ignore camera errors; the browser permission prompt handles consent
+        }
+      } else {
+        stopCamera();
+      }
+    })();
+
+    return () => {
+      // no-op cleanup here; stopCamera is idempotent
+    };
+  }, [view, session, startCamera, stopCamera]);
 
   return (
     <StudyBeeShell>
