@@ -230,9 +230,6 @@ function generatePuzzle(params: KakuroParams): {
 }
 
 // helper
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
-}
 type Phase = "ready" | "playing" | "checking" | "done";
 
 interface Props {
