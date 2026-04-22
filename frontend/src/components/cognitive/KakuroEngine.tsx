@@ -25,101 +25,214 @@ function generatePuzzle(params: KakuroParams): {
   fillCells: [number, number][];
 } {
   const size = params.grid_size;
-  const grid: KakuroCell[][] = [];
 
-  // Initialize all as empty
-  for (let r = 0; r < size; r++) {
-    grid[r] = [];
-    for (let c = 0; c < size; c++) {
-      grid[r][c] = { type: "empty", row: r, col: c };
+  // ---------- STEP 1: CREATE STRUCTURE ----------
+  const isFill: boolean[][] = Array.from({ length: size }, () =>
+    Array(size).fill(false)
+  );
+
+  for (let r = 1; r < size; r++) {
+    for (let c = 1; c < size; c++) {
+      isFill[r][c] = Math.random() < 0.7;
     }
   }
+
+  // ensure runs >= 2
+  for (let r = 1; r < size; r++) {
+    let count = 0;
+    for (let c = 1; c < size; c++) {
+      if (isFill[r][c]) count++;
+      else {
+        if (count === 1) isFill[r][c - 1] = false;
+        count = 0;
+      }
+    }
+  }
+
+  for (let c = 1; c < size; c++) {
+    let count = 0;
+    for (let r = 1; r < size; r++) {
+      if (isFill[r][c]) count++;
+      else {
+        if (count === 1) isFill[r - 1][c] = false;
+        count = 0;
+      }
+    }
+  }
+
+  // ---------- STEP 2: PREP GRID ----------
+  const solution: number[][] = Array.from({ length: size }, () =>
+    Array(size).fill(0)
+  );
+
+  const runsH: number[][][] = [];
+  const runsV: number[][][] = [];
+
+  // collect runs
+  for (let r = 0; r < size; r++) {
+    let run: number[][] = [];
+    for (let c = 0; c < size; c++) {
+      if (isFill[r][c]) run.push([r, c]);
+      else {
+        if (run.length >= 2) runsH.push(run);
+        run = [];
+      }
+    }
+    if (run.length >= 2) runsH.push(run);
+  }
+
+  for (let c = 0; c < size; c++) {
+    let run: number[][] = [];
+    for (let r = 0; r < size; r++) {
+      if (isFill[r][c]) run.push([r, c]);
+      else {
+        if (run.length >= 2) runsV.push(run);
+        run = [];
+      }
+    }
+    if (run.length >= 2) runsV.push(run);
+  }
+
+  // ---------- STEP 3: SOLVER ----------
+  const cells: [number, number][] = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (isFill[r][c]) cells.push([r, c]);
+    }
+  }
+
+  const getRun = (r: number, c: number, runs: number[][][]) =>
+    runs.find(run => run.some(([rr, cc]) => rr === r && cc === c)) || [];
+
+  const isValid = (r: number, c: number, val: number) => {
+    const hRun = getRun(r, c, runsH);
+    const vRun = getRun(r, c, runsV);
+
+    for (const [rr, cc] of hRun) {
+      if (solution[rr][cc] === val) return false;
+    }
+    for (const [rr, cc] of vRun) {
+      if (solution[rr][cc] === val) return false;
+    }
+
+    return true;
+  };
+
+  const solve = (idx: number): boolean => {
+    if (idx >= cells.length) return true;
+
+    const [r, c] = cells[idx];
+
+    const digits = shuffle([1,2,3,4,5,6,7,8,9]);
+
+    for (const d of digits) {
+      if (!isValid(r, c, d)) continue;
+
+      solution[r][c] = d;
+
+      if (solve(idx + 1)) return true;
+
+      solution[r][c] = 0;
+    }
+
+    return false;
+  };
+
+  const shuffle = (arr: number[]) =>
+    [...arr].sort(() => Math.random() - 0.5);
+
+  const solved = solve(0);
+
+  if (!solved) {
+    // Fallback: create a small guaranteed-solvable 2x2 block
+    const digits = [1, 2, 3, 4];
+
+    // clear any fills and solutions
+    for (let rr = 0; rr < size; rr++) {
+      for (let cc = 0; cc < size; cc++) {
+        isFill[rr][cc] = false;
+        solution[rr][cc] = 0;
+      }
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const rr = 1 + Math.floor(i / 2);
+      const cc = 1 + (i % 2);
+      if (rr < size && cc < size) {
+        isFill[rr][cc] = true;
+        solution[rr][cc] = digits[i];
+      }
+    }
+  }
+
+  // ---------- STEP 4: BUILD GRID ----------
+  const grid: KakuroCell[][] = Array.from({ length: size }, (_, r) =>
+    Array.from({ length: size }, (_, c) => ({
+      type: "empty",
+      row: r,
+      col: c,
+    }))
+  );
 
   const fillCells: [number, number][] = [];
 
-  // Create a simple pattern: horizontal runs of 2-3 cells
-  const usedCells = new Set<string>();
-
-  for (let r = 1; r < size - 1; r++) {
-    for (let c = 1; c < size - 1; c += Math.floor(Math.random() * 2) + 2) {
-      const runLen = Math.min(
-        Math.floor(Math.random() * (params.max_cells_per_clue - 1)) + 2,
-        size - c - 1
-      );
-      if (runLen < 2) continue;
-
-      // Generate unique digits that sum within constraints
-      const digits: number[] = [];
-      const used = new Set<number>();
-
-      for (let i = 0; i < runLen; i++) {
-        let d: number;
-        let attempts = 0;
-        do {
-          d = Math.floor(Math.random() * 9) + 1;
-          attempts++;
-        } while ((used.has(d) || digits.reduce((s, v) => s + v, 0) + d > params.max_clue_sum) && attempts < 50);
-
-        if (attempts >= 50) break;
-        digits.push(d);
-        used.add(d);
-      }
-
-      if (digits.length < 2) continue;
-
-      const sum = digits.reduce((s, v) => s + v, 0);
-
-      // Place clue cell
-      if (c > 0) {
-        grid[r][c - 1] = { type: "clue", clueRight: sum, row: r, col: c - 1 };
-      }
-
-      // Place fill cells
-      for (let i = 0; i < digits.length; i++) {
-        const fc = c + i;
-        if (fc >= size) break;
-        const key = `${r},${fc}`;
-        if (!usedCells.has(key)) {
-          grid[r][fc] = { type: "fill", solution: digits[i], row: r, col: fc };
-          fillCells.push([r, fc]);
-          usedCells.add(key);
-        }
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (isFill[r][c]) {
+        grid[r][c] = {
+          type: "fill",
+          solution: solution[r][c],
+          row: r,
+          col: c,
+        };
+        fillCells.push([r, c]);
       }
     }
   }
 
-  // If we didn't generate enough, add some more
-  const [minEmpty, maxEmpty] = params.empty_cells_range;
-  const target = Math.min(maxEmpty, Math.max(minEmpty, fillCells.length));
+  // ---------- STEP 5: CLUES ----------
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (grid[r][c].type !== "empty") continue;
 
-  // Ensure at least some cells exist
-  if (fillCells.length < 4) {
-    // Fallback: create a simple 2x2 block
-    const digits = [1, 2, 3, 4];
-    for (let i = 0; i < 4; i++) {
-      const r = 1 + Math.floor(i / 2);
-      const c = 1 + (i % 2);
-      if (r < size && c < size) {
-        const key = `${r},${c}`;
-        if (!usedCells.has(key)) {
-          grid[r][c] = { type: "fill", solution: digits[i], row: r, col: c };
-          fillCells.push([r, c]);
-          usedCells.add(key);
+      let clueRight = 0;
+      let clueDown = 0;
+
+      if (c + 1 < size && grid[r][c + 1].type === "fill") {
+        let cc = c + 1;
+        while (cc < size && grid[r][cc].type === "fill") {
+          clueRight += grid[r][cc].solution!;
+          cc++;
         }
       }
-    }
-    // Clues
-    if (1 < size && 0 < size) {
-      grid[1][0] = { type: "clue", clueRight: 3, row: 1, col: 0 };
-    }
-    if (2 < size && 0 < size) {
-      grid[2][0] = { type: "clue", clueRight: 7, row: 2, col: 0 };
+
+      if (r + 1 < size && grid[r + 1][c].type === "fill") {
+        let rr = r + 1;
+        while (rr < size && grid[rr][c].type === "fill") {
+          clueDown += grid[rr][c].solution!;
+          rr++;
+        }
+      }
+
+      if (clueRight || clueDown) {
+        grid[r][c] = {
+          type: "clue",
+          clueRight: clueRight || undefined,
+          clueDown: clueDown || undefined,
+          row: r,
+          col: c,
+        };
+      }
     }
   }
 
-  return { grid, fillCells: fillCells.slice(0, target) };
+  return { grid, fillCells };
 }
 
+// helper
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
 type Phase = "ready" | "playing" | "checking" | "done";
 
 interface Props {
@@ -192,6 +305,9 @@ export function KakuroEngine({ params, onComplete, onQuit }: Props) {
     const newErrors = new Set<string>();
     let correctCount = 0;
 
+    // Total reaction time since start (same for all trials in this simple implementation)
+    const rt = Math.round(performance.now() - startTimeRef.current);
+
     puzzle.fillCells.forEach(([r, c], idx) => {
       const key = `${r},${c}`;
       const cell = puzzle.grid[r][c];
@@ -201,15 +317,16 @@ export function KakuroEngine({ params, onComplete, onQuit }: Props) {
       if (!isCorrect) newErrors.add(key);
       else correctCount++;
 
-      const rt = Math.round(performance.now() - startTimeRef.current);
-
       trials.push({
         trial_index: idx,
         stimulus: { row: r, col: c, solution: cell.solution ?? 0, grid_size: params.grid_size },
-        response: { value: userVal ?? 0 },
+        // Use null for missing responses so the backend can distinguish omissions
+        response: { value: userVal ?? null },
         is_correct: isCorrect,
-        reaction_time_ms: Math.round(rt / Math.max(1, puzzle.fillCells.length)),
-        error_type: isCorrect ? "" : userVal === null ? "omission" : "commission",
+        // Report the full elapsed time (do not divide by number of cells)
+        reaction_time_ms: rt,
+        // Treat both undefined and null as omissions
+        error_type: isCorrect ? "" : (userVal == null ? "omission" : "commission"),
       });
     });
 
