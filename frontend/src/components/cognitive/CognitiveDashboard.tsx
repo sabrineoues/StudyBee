@@ -128,6 +128,33 @@ export function CognitiveDashboard({ onStartTask }: Props) {
 
   return (
     <div className="space-y-8">
+      {/* ── Brain Age Test Banner ───────────────────────────────────────── */}
+      <motion.button
+        onClick={() => navigate("/cognitive/brain-age")}
+        className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-primary-container p-6 text-left shadow-lg shadow-primary/15 transition-all hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -2 }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+            <span className="material-symbols-outlined text-3xl text-white">neurology</span>
+          </div>
+          <div className="flex-1">
+            <h3 className="font-headline text-xl font-extrabold text-white">Brain Age Test</h3>
+            <p className="mt-0.5 text-sm text-white/80">
+              Assess your cognitive abilities across memory, reflexes, visual processing &amp; arithmetic
+            </p>
+          </div>
+          <span className="material-symbols-outlined text-2xl text-white/60 transition-transform group-hover:translate-x-1">
+            arrow_forward
+          </span>
+        </div>
+        {/* Decorative circles */}
+        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5 blur-xl" />
+        <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5 blur-lg" />
+      </motion.button>
+
       {/* ── Task Selector Cards ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Object.entries(TASK_META).map(([slug, meta]) => {
