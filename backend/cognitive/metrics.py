@@ -127,7 +127,7 @@ def _scale_performance(accuracy: float, avg_rt_ms: float) -> float:
     """
     Map session performance into a 0-100 score for the EMA update.
 
-    Combines accuracy (70%) and speed (30%).  A "perfect" score of 100
+    Combines accuracy (90%) and speed (10%).  A "perfect" score of 100
     requires both high accuracy and fast responses.
     """
     speed_score = max(0.0, 1.0 - (avg_rt_ms / MAX_REASONABLE_RT_MS))
