@@ -131,7 +131,7 @@ def _scale_performance(accuracy: float, avg_rt_ms: float) -> float:
     requires both high accuracy and fast responses.
     """
     speed_score = max(0.0, 1.0 - (avg_rt_ms / MAX_REASONABLE_RT_MS))
-    raw = 0.70 * accuracy + 0.30 * speed_score
+    raw = 0.90 * accuracy + 0.10 * speed_score
     return float(np.clip(raw * 100.0, 0.0, 100.0))
 
 

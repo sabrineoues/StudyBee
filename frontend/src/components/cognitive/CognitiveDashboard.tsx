@@ -1,6 +1,7 @@
 /* ── Cognitive Dashboard — Performance Charts & Profile ─────────────────── */
 
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ResponsiveContainer,
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function CognitiveDashboard({ onStartTask }: Props) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<CognitiveProfile | null>(null);
   const [sessions, setSessions] = useState<CognitiveSessionSummary[]>([]);
   const [history, setHistory] = useState<HistoryDataPoint[]>([]);
@@ -147,18 +149,33 @@ export function CognitiveDashboard({ onStartTask }: Props) {
                 >
                   {meta.icon}
                 </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onStartTask(slug);
-                  }}
-                  className={`rounded-full px-3 py-1 text-xs font-bold transition-all hover:scale-105 ${selectedTask === slug
-                    ? "bg-white/20 text-on-primary"
-                    : "bg-primary/10 text-primary"
-                    }`}
-                >
-                  Play
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/cognitive/${slug}/info`);
+                    }}
+                    title="Learn more"
+                    className={`rounded-full p-1.5 text-xs font-bold transition-all hover:scale-110 ${selectedTask === slug
+                      ? "bg-white/15 text-on-primary hover:bg-white/25"
+                      : "bg-primary/8 text-primary hover:bg-primary/15"
+                      }`}
+                  >
+                    <span className="material-symbols-outlined text-base">science</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartTask(slug);
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-bold transition-all hover:scale-105 ${selectedTask === slug
+                      ? "bg-white/20 text-on-primary"
+                      : "bg-primary/10 text-primary"
+                      }`}
+                  >
+                    Play
+                  </button>
+                </div>
               </div>
               <h3 className="font-headline text-sm font-bold">{meta.label}</h3>
               {stats ? (

@@ -65,7 +65,7 @@ export function NBackEngine({ params, onComplete, onQuit }: Props) {
   const trialsRef = useRef<TrialInput[]>([]);
   const stimStartRef = useRef(0);
 
-  const showDuration = Math.round(params.isi_ms * 0.6);
+  const showDuration = Math.round(params.isi_ms * 0.75);
   const blankDuration = params.isi_ms - showDuration;
 
   const startGame = useCallback(() => {
