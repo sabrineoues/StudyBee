@@ -1,0 +1,8 @@
+djangorestframework
+django-cors-headers
+pymupdf
+chromadb
+sentence-transformers
+google-genai
+edge-tts
+elevenlabs
