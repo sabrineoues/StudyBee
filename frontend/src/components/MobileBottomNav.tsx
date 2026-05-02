@@ -29,9 +29,7 @@ export function MobileBottomNav() {
               }
               aria-current={isActive ? "page" : undefined}
             >
-              <span className="material-symbols-outlined text-xl">
-                {item.icon}
-              </span>
+
               <span className="leading-none">{item.label}</span>
             </Link>
           );
