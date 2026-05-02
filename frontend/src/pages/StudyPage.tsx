@@ -8,6 +8,7 @@ import type {
   AdminStudySession,
   StudySession,
   StudySessionCreate,
+  StudySessionTask,
 } from "../services/studysessionsService";
 import { userService } from "../services/userService";
 import { visionService } from "../services/visionService";
@@ -112,6 +113,14 @@ export function StudyPage() {
   const tiredDismissedForSessionIdRef = useRef<number | null>(null);
 
   const [showTiredPopup, setShowTiredPopup] = useState(false);
+  const [tasks, setTasks] = useState<StudySessionTask[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [openMenuForTaskId, setOpenMenuForTaskId] = useState<number | null>(null);
+  const [showTaskEditModal, setShowTaskEditModal] = useState(false);
+  const [showTaskAddModal, setShowTaskAddModal] = useState(false);
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
@@ -137,8 +146,11 @@ export function StudyPage() {
     });
   }, [sessions, sessionSearch, isAdmin]);
 
-  const progress = Math.min(100, Math.max(0, selectedSession?.focusScore ?? 0));
   const timerProgress = timerTotalSeconds > 0 ? (timeLeftSeconds / timerTotalSeconds) * 100 : 0;
+  const taskTotal = tasks.length;
+  const taskDone = tasks.filter((task) => task.done).length;
+  const taskPending = tasks.filter((task) => !task.done).length;
+  const taskProgress = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
   const ringRadius = 104;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringDashOffset = ringCircumference * (1 - timerProgress / 100);
@@ -248,6 +260,35 @@ export function StudyPage() {
       alive = false;
     };
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!selectedSession) {
+      setTasks([]);
+      setNewTaskTitle("");
+      setEditingTaskId(null);
+      setEditingTaskTitle("");
+      return;
+    }
+
+    let alive = true;
+    setError(null);
+
+    void (async () => {
+      try {
+        const sessionTasks = await studysessionsService.listTasks(selectedSession.id);
+        if (!alive) return;
+        setTasks(sessionTasks);
+      } catch (err) {
+        if (!alive) return;
+        const maybeAny = err as { response?: { data?: unknown } };
+        setError(formatDrfError(maybeAny?.response?.data, "Could not load session tasks."));
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [selectedSession]);
 
   useEffect(() => {
     if (!selectedSession) {
@@ -378,6 +419,91 @@ export function StudyPage() {
       subject: session.subject,
     });
     setShowEditModal(true);
+  }
+
+  async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSession || !newTaskTitle.trim()) return;
+
+    setTaskSaving(true);
+    setError(null);
+
+    try {
+      const created = await studysessionsService.createTask(selectedSession.id, {
+        title: newTaskTitle.trim(),
+      });
+      setTasks((previous) => [created, ...previous]);
+      setNewTaskTitle("");
+      setShowTaskAddModal(false);
+    } catch (err) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      setError(formatDrfError(maybeAny?.response?.data, "Could not add task."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function handleEditTask(taskId: number) {
+    if (!selectedSession) return;
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    setEditingTaskId(taskId);
+    setEditingTaskTitle(task.title);
+  }
+
+  async function handleSaveTask() {
+    if (!selectedSession || editingTaskId === null || !editingTaskTitle.trim()) return;
+
+    setTaskSaving(true);
+    setError(null);
+
+    try {
+      const updated = await studysessionsService.updateTask(selectedSession.id, editingTaskId, {
+        title: editingTaskTitle.trim(),
+      });
+      setTasks((previous) => previous.map((task) => (task.id === updated.id ? updated : task)));
+      setEditingTaskId(null);
+      setEditingTaskTitle("");
+    } catch (err) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      setError(formatDrfError(maybeAny?.response?.data, "Could not save task."));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function handleToggleTaskDone(taskId: number) {
+    if (!selectedSession) return;
+
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) return;
+
+    try {
+      const updated = await studysessionsService.updateTask(selectedSession.id, taskId, {
+        done: !task.done,
+      });
+      setTasks((previous) => previous.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (err) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      setError(formatDrfError(maybeAny?.response?.data, "Could not update task."));
+    }
+  }
+
+  async function handleDeleteTask(taskId: number) {
+    if (!selectedSession) return;
+
+    setError(null);
+    try {
+      await studysessionsService.deleteTask(selectedSession.id, taskId);
+      setTasks((previous) => previous.filter((item) => item.id !== taskId));
+      if (editingTaskId === taskId) {
+        setEditingTaskId(null);
+        setEditingTaskTitle("");
+      }
+    } catch (err) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      setError(formatDrfError(maybeAny?.response?.data, "Could not delete task."));
+    }
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -844,26 +970,127 @@ export function StudyPage() {
                   </article>
 
                   <article className="rounded-xl bg-surface-container-low p-6 shadow-sm ring-1 ring-outline-variant/10">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.progress.title")}</h3>
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                        {progress}%
-                      </span>
-                    </div>
-                    <div className="h-3 w-full rounded-full bg-surface-container-high">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-outline">{t("study.progress.subtitle")}</p>
+                    {taskTotal > 0 && (
+                      <>
+                        <div className="mb-3 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-on-surface">{t("study.todo.taskProgress")}</p>
+                          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                            {taskProgress}%
+                          </span>
+                        </div>
+                        <div className="h-3 w-full rounded-full bg-surface-container-high">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${taskProgress}%` }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-outline">
+                          {t("study.todo.taskProgressLabel", { done: taskDone, total: taskTotal })}
+                        </p>
+                      </>
+                    )}
                   </article>
 
                   <article className="rounded-xl bg-surface-container-low p-6 shadow-sm ring-1 ring-outline-variant/10">
-                    <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.todo.title")}</h3>
-                    <p className="mt-3 rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface-variant">
-                      {t("study.todo.empty")}
-                    </p>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-headline text-lg font-bold text-on-surface">{t("study.todo.title")}</h3>
+                        <p className="text-sm text-outline mt-1">{t("study.todo.helpText")}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTaskAddModal(true)}
+                      className="mb-4 w-full rounded-full border-2 border-dashed border-outline/40 bg-surface px-4 py-4 text-sm font-semibold text-on-surface transition hover:border-primary/60 hover:bg-primary/5 flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-base text-primary">add</span>
+                      {t("study.todo.addTask")}
+                    </button>
+
+                    {tasks.length > 0 && (
+                      <div className="mb-4 flex items-center justify-between rounded-2xl bg-surface p-4 shadow-sm">
+                        <p className="text-sm font-semibold text-on-surface">{t("study.todo.pendingLabel")}</p>
+                        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                          {taskPending} {t("study.todo.pending")}
+                        </span>
+                      </div>
+                    )}
+
+                    {tasks.length === 0 ? (
+                      <p className="rounded-lg border border-surface-container-high bg-surface px-3 py-4 text-sm text-on-surface-variant">
+                        {t("study.todo.empty")}
+                      </p>
+                    ) : (
+                      <>
+                        <div className="space-y-3">
+                          {tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="flex items-center gap-4 rounded-full border border-surface-container-high bg-surface px-4 py-4 shadow-sm"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => void handleToggleTaskDone(task.id)}
+                                className={`flex h-11 w-11 items-center justify-center rounded-full border p-2 transition ${task.done ? "border-primary bg-primary/10 text-primary" : "border-surface-container-high text-on-surface hover:border-primary"}`}
+                                aria-label={t("study.todo.toggleTask", { title: task.title })}
+                              >
+                                <span className="material-symbols-outlined text-base">
+                                  {task.done ? "check" : "radio_button_unchecked"}
+                                </span>
+                              </button>
+
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className={`truncate text-sm font-medium ${
+                                    task.done ? "text-on-surface-variant line-through" : "text-on-surface"
+                                  }`}
+                                >
+                                  {task.title}
+                                </p>
+                              </div>
+
+                              <div className="relative flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenMenuForTaskId(openMenuForTaskId === task.id ? null : task.id)}
+                                  className="rounded-full p-2 text-on-surface transition hover:bg-surface-container-high"
+                                  aria-label="More options"
+                                >
+                                  <span className="material-symbols-outlined text-base">more_vert</span>
+                                </button>
+                                {openMenuForTaskId === task.id && (
+                                  <div className="absolute right-0 top-full z-10 mt-2 w-32 rounded-lg border border-surface-container-high bg-surface shadow-lg">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleEditTask(task.id);
+                                        setOpenMenuForTaskId(null);
+                                        setShowTaskEditModal(true);
+                                      }}
+                                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-on-surface transition hover:bg-surface-container-high first:rounded-t-lg"
+                                    >
+                                      <span className="material-symbols-outlined text-base">edit</span>
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void handleDeleteTask(task.id);
+                                        setOpenMenuForTaskId(null);
+                                      }}
+                                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 last:rounded-b-lg"
+                                    >
+                                      <span className="material-symbols-outlined text-base">delete</span>
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </article>
                 </div>
 
@@ -956,6 +1183,84 @@ export function StudyPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showTaskAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl ring-1 ring-outline-variant/10">
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("study.todo.addTask")}</h2>
+            
+            <form onSubmit={handleCreateTask}>
+              <input
+                value={newTaskTitle}
+                onChange={(event) => setNewTaskTitle(event.target.value)}
+                placeholder={t("study.todo.addTaskPlaceholder")}
+                className="mt-4 w-full rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface outline-none placeholder:text-outline focus-visible:ring-4 focus-visible:ring-primary/15"
+                autoFocus
+              />
+
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTaskAddModal(false);
+                    setNewTaskTitle("");
+                  }}
+                  className="rounded-lg border border-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-low disabled:opacity-60"
+                >
+                  {t("study.todo.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={taskSaving || !newTaskTitle.trim()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {taskSaving ? t("admin.common.saving") : t("study.todo.addTask")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTaskEditModal && editingTaskId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl ring-1 ring-outline-variant/10">
+            <h2 className="font-headline text-xl font-bold text-on-surface">{t("study.todo.editTask", { title: "" })}</h2>
+            
+            <input
+              value={editingTaskTitle}
+              onChange={(event) => setEditingTaskTitle(event.target.value)}
+              className="mt-4 w-full rounded-lg border border-surface-container-high bg-surface px-3 py-2 text-sm text-on-surface outline-none placeholder:text-outline focus-visible:ring-4 focus-visible:ring-primary/15"
+              placeholder={t("study.todo.addTaskPlaceholder")}
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTaskEditModal(false);
+                  setEditingTaskId(null);
+                  setEditingTaskTitle("");
+                }}
+                className="rounded-lg border border-surface-container-high px-4 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-low disabled:opacity-60"
+              >
+                {t("study.todo.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSaveTask();
+                  setShowTaskEditModal(false);
+                }}
+                disabled={!editingTaskTitle.trim() || taskSaving}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {taskSaving ? t("admin.common.saving") : t("study.todo.save")}
+              </button>
+            </div>
           </div>
         </div>
       )}

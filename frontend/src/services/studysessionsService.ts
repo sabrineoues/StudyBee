@@ -52,6 +52,22 @@ export type AdminStudySessionUpdate = Partial<
 	>
 >;
 
+export type StudySessionTask = {
+	id: number;
+	session_id: number;
+	title: string;
+	done: boolean;
+	created_at: string;
+	updated_at: string;
+};
+
+export type StudySessionTaskCreate = {
+	title: string;
+	done?: boolean;
+};
+
+export type StudySessionTaskUpdate = Partial<StudySessionTaskCreate>;
+
 function getBaseUrl() {
 	return API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
 }
@@ -98,5 +114,31 @@ export const studysessionsService = {
 
 	delete: async (id: number): Promise<void> => {
 		await axios.delete(`${getBaseUrl()}sessions/${id}/`);
+	},
+
+	listTasks: async (sessionId: number): Promise<StudySessionTask[]> => {
+		const response = await axios.get(`${getBaseUrl()}sessions/${sessionId}/tasks/`);
+		return response.data as StudySessionTask[];
+	},
+
+	createTask: async (sessionId: number, data: StudySessionTaskCreate): Promise<StudySessionTask> => {
+		const response = await axios.post(`${getBaseUrl()}sessions/${sessionId}/tasks/`, data);
+		return response.data as StudySessionTask;
+	},
+
+	updateTask: async (
+		sessionId: number,
+		taskId: number,
+		data: StudySessionTaskUpdate,
+	): Promise<StudySessionTask> => {
+		const response = await axios.patch(
+			`${getBaseUrl()}sessions/${sessionId}/tasks/${taskId}/`,
+			data,
+		);
+		return response.data as StudySessionTask;
+	},
+
+	deleteTask: async (sessionId: number, taskId: number): Promise<void> => {
+		await axios.delete(`${getBaseUrl()}sessions/${sessionId}/tasks/${taskId}/`);
 	},
 };

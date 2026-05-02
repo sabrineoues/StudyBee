@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     'users',
     'journal',
     'studysessions',
-    'todolist',
     'ratings',
     'vision',
     'rest_framework',
