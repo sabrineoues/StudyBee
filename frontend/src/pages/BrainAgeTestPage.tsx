@@ -92,7 +92,7 @@ function calculateBrainAge(results: AllResults): number {
     age += 12;
   }
 
-  return Math.max(15, Math.min(29, age));
+  return Math.max(15, Math.min(30, age));
 }
 
 /* ── Component ──────────────────────────────────────────────────────────── */
