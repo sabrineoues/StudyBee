@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StudyBee — PPO Cognitive Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0f0f1a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 40px 24px 60px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    margin-top: 8px;
+    color: #94a3b8;
+    font-size: 0.95rem;
+  }
+
+  /* ── Layout wrapper ── */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ── Connector arrows ── */
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    z-index: 1;
+  }
+  .arrow-line {
+    width: 2px;
+    height: 28px;
+    background: linear-gradient(to bottom, #475569, #64748b);
+  }
+  .arrow-label {
+    font-size: 0.68rem;
+    color: #64748b;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 9px solid #64748b;
+  }
+
+  /* ── Stage card ── */
+  .stage {
+    width: 100%;
+    border-radius: 18px;
+    padding: 22px 26px 20px;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: default;
+    position: relative;
+  }
+  .stage:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+
+  .stage-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .stage-num {
+    font-size: 1.45rem;
+    font-weight: 800;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .stage-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .stage-subtitle {
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+
+  .stage-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+  }
+
+  /* ── Chip ── */
+  .chip {
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .chip-label {
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    opacity: 0.65;
+  }
+  .chip-value {
+    font-weight: 500;
+  }
+
+  /* ── PPO subgraph ── */
+  .subgraph {
+    width: 100%;
+    border-radius: 18px;
+    padding: 20px 22px;
+    border: 2px dashed rgba(251,191,36,0.5);
+    background: rgba(251,191,36,0.04);
+  }
+  .subgraph-title {
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #fbbf24;
+    margin-bottom: 18px;
+  }
+  .subgraph-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .subgraph-span {
+    grid-column: 1 / -1;
+  }
+
+  /* ── Per-stage color themes ── */
+  /* 1 Emotion – violet */
+  .s1 { background: rgba(109,40,217,0.13); border-color: rgba(139,92,246,0.3); }
+  .s1 .stage-num { background: rgba(139,92,246,0.2); color: #a78bfa; }
+  .s1 .chip { background: rgba(139,92,246,0.1); }
+  .s1 .chip-label { color: #a78bfa; }
+
+  /* 2 State – blue */
+  .s2 { background: rgba(37,99,235,0.1); border-color: rgba(59,130,246,0.3); }
+  .s2 .stage-num { background: rgba(59,130,246,0.2); color: #60a5fa; }
+  .s2 .chip { background: rgba(59,130,246,0.1); }
+  .s2 .chip-label { color: #60a5fa; }
+
+  /* 3 Environment – green */
+  .s3 { background: rgba(5,150,105,0.1); border-color: rgba(16,185,129,0.3); }
+  .s3 .stage-num { background: rgba(16,185,129,0.2); color: #34d399; }
+  .s3 .chip { background: rgba(16,185,129,0.1); }
+  .s3 .chip-label { color: #34d399; }
+
+  /* 4+5 PPO Agent – amber */
+  .s45 .stage-num { background: rgba(245,158,11,0.2); color: #fbbf24; }
+  .sub-policy { background: rgba(239,68,68,0.1); border-radius: 12px; padding: 12px; border: 1px solid rgba(239,68,68,0.25); }
+  .sub-value  { background: rgba(239,68,68,0.1); border-radius: 12px; padding: 12px; border: 1px solid rgba(239,68,68,0.25); }
+  .sub-sample { background: rgba(234,179,8,0.1);  border-radius: 12px; padding: 12px; border: 1px solid rgba(234,179,8,0.25); }
+  .sub-opt    { background: rgba(234,179,8,0.1);  border-radius: 12px; padding: 12px; border: 1px solid rgba(234,179,8,0.25); }
+  .sub-title  { font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; }
+  .sub-line   { font-size: 0.72rem; color: #94a3b8; line-height: 1.6; }
+  .sub-policy .sub-title, .sub-value .sub-title { color: #fca5a5; }
+  .sub-sample .sub-title, .sub-opt .sub-title   { color: #fde68a; }
+
+  /* 6 Reward – teal */
+  .s6 { background: rgba(5,150,105,0.09); border-color: rgba(5,150,105,0.3); }
+  .s6 .stage-num { background: rgba(5,150,105,0.2); color: #34d399; }
+  .s6 .chip { background: rgba(5,150,105,0.1); }
+  .s6 .chip-label { color: #34d399; }
+
+  /* 7 Advantage – indigo */
+  .s7 { background: rgba(79,70,229,0.1); border-color: rgba(99,102,241,0.3); }
+  .s7 .stage-num { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+  .s7 .chip { background: rgba(99,102,241,0.1); }
+  .s7 .chip-label { color: #a5b4fc; }
+
+  /* 8 PPO Update – fuchsia */
+  .s8 { background: rgba(168,85,247,0.09); border-color: rgba(217,70,239,0.3); }
+  .s8 .stage-num { background: rgba(217,70,239,0.2); color: #e879f9; }
+  .s8 .chip { background: rgba(217,70,239,0.1); }
+  .s8 .chip-label { color: #e879f9; }
+
+  /* 9 Persistence – cyan */
+  .s9 { background: rgba(6,182,212,0.09); border-color: rgba(6,182,212,0.3); }
+  .s9 .stage-num { background: rgba(6,182,212,0.2); color: #22d3ee; }
+  .s9 .chip { background: rgba(6,182,212,0.1); }
+  .s9 .chip-label { color: #22d3ee; }
+
+  /* 10 Loop – orange */
+  .s10 { background: rgba(234,88,12,0.09); border-color: rgba(249,115,22,0.3); }
+  .s10 .stage-num { background: rgba(249,115,22,0.2); color: #fb923c; }
+  .s10 .chip { background: rgba(249,115,22,0.1); }
+  .s10 .chip-label { color: #fb923c; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 48px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+  }
+  .legend-dot {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Feedback loop ring ── */
+  .loop-ring {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: #64748b;
+    letter-spacing: 0.3px;
+  }
+  .loop-ring span {
+    color: #fb923c;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>StudyBee — PPO Cognitive Pipeline</h1>
+  <p>Adaptive difficulty powered by Proximal Policy Optimization · 10-stage architecture</p>
+</header>
+
+<div class="pipeline">
+
+  <!-- ① Emotion Valence -->
+  <div class="stage s1">
+    <div class="stage-header">
+      <div class="stage-num">①</div>
+      <div>
+        <div class="stage-title">Emotion Valence Integration</div>
+        <div class="stage-subtitle">External affect detection model → leading indicator</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Output</div><div class="chip-value">Valence score ∈ [0, 1]</div></div>
+      <div class="chip"><div class="chip-label">Low valence (≈0)</div><div class="chip-value">Frustrated · Anxious · Bored</div></div>
+      <div class="chip"><div class="chip-label">High valence (≈1)</div><div class="chip-value">Engaged · Confident · Flow</div></div>
+      <div class="chip"><div class="chip-label">Injection point</div><div class="chip-value">State dimension s9</div></div>
+      <div class="chip"><div class="chip-label">Design intent</div><div class="chip-value">Preemptive, not reactive adjustment</div></div>
+      <div class="chip"><div class="chip-label">Decoupled</div><div class="chip-value">Swappable model, no RL changes needed</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">valence → s9</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ② State Construction -->
+  <div class="stage s2">
+    <div class="stage-header">
+      <div class="stage-num">②</div>
+      <div>
+        <div class="stage-title">State Construction</div>
+        <div class="stage-subtitle">9-dimensional normalized observation vector</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">s1 Accuracy</div><div class="chip-value">correct / total ∈ [0,1]</div></div>
+      <div class="chip"><div class="chip-label">s2 Reaction Time</div><div class="chip-value">avg RT / 6500 ms ∈ [0,1]</div></div>
+      <div class="chip"><div class="chip-label">s3 Interference</div><div class="chip-value">interference errors / total</div></div>
+      <div class="chip"><div class="chip-label">s4 Omission</div><div class="chip-value">missed responses / total</div></div>
+      <div class="chip"><div class="chip-label">s5 Difficulty</div><div class="chip-value">(d − min) / (max − min)</div></div>
+      <div class="chip"><div class="chip-label">s6 Experience</div><div class="chip-value">log(sessions+1) / log(200)</div></div>
+      <div class="chip"><div class="chip-label">s7 Trend</div><div class="chip-value">OLS slope over last 5 sessions</div></div>
+      <div class="chip"><div class="chip-label">s8 Recency</div><div class="chip-value">hours_since / 168 (1 week)</div></div>
+      <div class="chip"><div class="chip-label">s9 Emotion</div><div class="chip-value">Valence ∈ [0,1] from Stage ①</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">session metrics s1–s8</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ③ Environment -->
+  <div class="stage s3">
+    <div class="stage-header">
+      <div class="stage-num">③</div>
+      <div>
+        <div class="stage-title">Environment</div>
+        <div class="stage-subtitle">4 cognitive tasks · episodic · real human learner</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Tasks</div><div class="chip-value">Stroop · N-Back · Schulte · Kakuro</div></div>
+      <div class="chip"><div class="chip-label">Difficulty Ladder</div><div class="chip-value">1–10 per task (hand-crafted)</div></div>
+      <div class="chip"><div class="chip-label">Action Space</div><div class="chip-value">{−2, −1, 0, +1, +2} difficulty delta</div></div>
+      <div class="chip"><div class="chip-label">Episode</div><div class="chip-value">1 session = 1 episode</div></div>
+      <div class="chip"><div class="chip-label">Cold-Start</div><div class="chip-value">Default difficulty 3, bypass agent</div></div>
+      <div class="chip"><div class="chip-label">Non-Stationary</div><div class="chip-value">Real human, learning & forgetting</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">9-dim vector</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ④ + ⑤ PPO Agent -->
+  <div class="subgraph">
+    <div class="subgraph-title">④ ⑤ &nbsp;PPO Agent — Actor-Critic Architecture</div>
+    <div class="subgraph-grid">
+      <div class="sub-policy">
+        <div class="sub-title">PolicyNet · Actor</div>
+        <div class="sub-line">9 → 32 → 16 → 5<br/>ReLU · log-softmax<br/>Xavier init · bias₂ = 0.5<br/>~900 parameters</div>
+      </div>
+      <div class="sub-value">
+        <div class="sub-title">ValueNet · Critic</div>
+        <div class="sub-line">9 → 32 → 16 → 1<br/>ReLU · linear output<br/>Xavier init<br/>~600 parameters</div>
+      </div>
+      <div class="sub-sample">
+        <div class="sub-title">Action Sampling</div>
+        <div class="sub-line">Categorical distribution · Stochastic<br/>Actions: {−2, −1, 0, +1, +2}<br/>Returns: action + log π(a|s)</div>
+      </div>
+      <div class="sub-opt">
+        <div class="sub-title">Shared Adam Optimizer</div>
+        <div class="sub-line">lr = 3×10⁻⁴<br/>Shared momentum buffers<br/>Per-user × task agent</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">difficulty delta → environment</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ⑥ Reward -->
+  <div class="stage s6">
+    <div class="stage-header">
+      <div class="stage-num">⑥</div>
+      <div>
+        <div class="stage-title">Reward Computation</div>
+        <div class="stage-subtitle">Weighted composite · range ≈ [−0.5, 1.0]</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">R_accuracy (0.55)</div><div class="chip-value">Gaussian ZPD @ 77.5% · sharpness 12</div></div>
+      <div class="chip"><div class="chip-label">R_speed (0.20)</div><div class="chip-value">1 − normalized RT (cap 5000 ms)</div></div>
+      <div class="chip"><div class="chip-label">R_improvement (0.15)</div><div class="chip-value">Δaccuracy clipped to [−0.3, 0.3]</div></div>
+      <div class="chip"><div class="chip-label">R_stability (0.10)</div><div class="chip-value">−|delta| · prefer small moves</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">scalar reward r</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ⑦ Advantage -->
+  <div class="stage s7">
+    <div class="stage-header">
+      <div class="stage-num">⑦</div>
+      <div>
+        <div class="stage-title">Advantage Estimation</div>
+        <div class="stage-subtitle">Single-step TD · A = r − V(s)</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Formula</div><div class="chip-value">A = r − V(s) · V detached</div></div>
+      <div class="chip"><div class="chip-label">Why no GAE</div><div class="chip-value">1 transition/episode → trivially collapses</div></div>
+      <div class="chip"><div class="chip-label">Positive A</div><div class="chip-value">Action outperformed expectation → ↑ prob</div></div>
+      <div class="chip"><div class="chip-label">Negative A</div><div class="chip-value">Action underperformed → ↓ prob</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">advantage A</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ⑧ PPO Update -->
+  <div class="stage s8">
+    <div class="stage-header">
+      <div class="stage-num">⑧</div>
+      <div>
+        <div class="stage-title">PPO Clipped Update</div>
+        <div class="stage-subtitle">3 epochs · clip ε = 0.2 · grad norm ≤ 0.5</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Policy Loss</div><div class="chip-value">−min(r·A, clip(r, 0.8, 1.2)·A)</div></div>
+      <div class="chip"><div class="chip-label">Value Loss</div><div class="chip-value">0.5 × MSE(V(s), r)</div></div>
+      <div class="chip"><div class="chip-label">Entropy Bonus</div><div class="chip-value">β decays 0.05 → 0.01 over 100 ep</div></div>
+      <div class="chip"><div class="chip-label">Total Loss</div><div class="chip-value">L_policy + 0.5·L_value − β·H(π)</div></div>
+      <div class="chip"><div class="chip-label">Grad Clip</div><div class="chip-value">global L2 norm ≤ 0.5</div></div>
+      <div class="chip"><div class="chip-label">PPO Epochs</div><div class="chip-value">3 passes over same single sample</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">updated weights</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ⑨ Persistence -->
+  <div class="stage s9">
+    <div class="stage-header">
+      <div class="stage-num">⑨</div>
+      <div>
+        <div class="stage-title">Persistence Layer</div>
+        <div class="stage-subtitle">torch.save → bytes → DB · ~10 KB per agent</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Serialization</div><div class="chip-value">torch.save into BytesIO buffer</div></div>
+      <div class="chip"><div class="chip-label">Schema</div><div class="chip-value">RLAgentState · unique_together(user, task)</div></div>
+      <div class="chip"><div class="chip-label">Stored</div><div class="chip-value">policy · value · optimizer weights</div></div>
+      <div class="chip"><div class="chip-label">Metadata</div><div class="chip-value">total_episodes · last_reward · last_loss</div></div>
+      <div class="chip"><div class="chip-label">Isolation</div><div class="chip-value">Fully independent per user×task</div></div>
+      <div class="chip"><div class="chip-label">Scale</div><div class="chip-value">10K users × 4 tasks ≈ 400 MB total</div></div>
+    </div>
+  </div>
+
+  <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">save / load cycle</div><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+  <!-- ⑩ Training Loop -->
+  <div class="stage s10">
+    <div class="stage-header">
+      <div class="stage-num">⑩</div>
+      <div>
+        <div class="stage-title">Training Loop Controller</div>
+        <div class="stage-subtitle">HTTP-driven · emergent · no explicit loop in code</div>
+      </div>
+    </div>
+    <div class="stage-body">
+      <div class="chip"><div class="chip-label">Inference trigger</div><div class="chip-value">POST /sessions/start/</div></div>
+      <div class="chip"><div class="chip-label">Training trigger</div><div class="chip-value">POST /sessions/&lt;id&gt;/complete/</div></div>
+      <div class="chip"><div class="chip-label">Transaction</div><div class="chip-value">CognitiveSession as boundary</div></div>
+      <div class="chip"><div class="chip-label">Abandoned sessions</div><div class="chip-value">ended_at=NULL → invisible to agent</div></div>
+      <div class="chip"><div class="chip-label">Profile update</div><div class="chip-value">Domain scores via EMA after each session</div></div>
+      <div class="chip"><div class="chip-label">Feedback loop</div><div class="chip-value">Scores motivate users → more sessions → better agent</div></div>
+    </div>
+  </div>
+
+</div><!-- /.pipeline -->
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Emotion (Violet)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>State (Blue)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>Environment (Green)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>PPO Agent (Amber)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>Reward (Teal)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a5b4fc"></div>Advantage (Indigo)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e879f9"></div>PPO Update (Fuchsia)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>Persistence (Cyan)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>Loop Controller (Orange)</div>
+</div>
+
+<div class="loop-ring">
+  <span>↺ Feedback Loop:</span>&nbsp; Agent learns → User improves → User stays motivated → More sessions → Agent learns more
+</div>
+
+</body>
+</html>
