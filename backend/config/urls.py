@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/', include('ratings.urls')),
     path('api/vision/', include('vision.urls')),
     path('api/journal/', include('journal.urls')),
+    path('api/cognitive/', include('cognitive.urls')),
 ]
 
 if settings.DEBUG:

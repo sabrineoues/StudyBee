@@ -8,6 +8,9 @@ import { StudyPage } from './pages/StudyPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { TipsPage } from './pages/TipsPage';
+import { CognitiveTrainingPage } from './pages/CognitiveTrainingPage';
+import { GameInfoPage } from './pages/GameInfoPage';
+import { BrainAgeTestPage } from './pages/BrainAgeTestPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -151,6 +154,30 @@ function AppInner() {
           element={
             <RequireAuth>
               <TipsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/cognitive"
+          element={
+            <RequireAuth>
+              <CognitiveTrainingPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/cognitive/:slug/info"
+          element={
+            <RequireAuth>
+              <GameInfoPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/cognitive/brain-age"
+          element={
+            <RequireAuth>
+              <BrainAgeTestPage />
             </RequireAuth>
           }
         />
