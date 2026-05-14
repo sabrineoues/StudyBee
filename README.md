@@ -1,4 +1,4 @@
-# StudyBee - Intelligent Multimodal Assistant for Emotion-Aware Learning
+# 🐝 StudyBee — Intelligent Multimodal Assistant for Emotion-Aware Learning
 
 StudyBee is an adaptive learning platform that combines AI-driven document analysis, conversational assistance, and real-time emotion and biosensor recognition to personalize the student experience.
 
