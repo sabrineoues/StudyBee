@@ -1,0 +1,24 @@
+from services.voice_api import predict_voice
+from services.face_api import predict_face
+from services.stress_api import predict_stress
+
+
+async def fuse_predictions(
+    audio_path,
+    image_path,
+    stress_payload
+):
+
+    voice_result = await predict_voice(audio_path)
+
+    face_result = await predict_face(image_path)
+
+    stress_result = await predict_stress(
+        stress_payload
+    )
+
+    return {
+        "voice_result": voice_result,
+        "face_result": face_result,
+        "stress_result": stress_result
+    }

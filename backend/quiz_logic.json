@@ -1,0 +1,98 @@
+{
+  "title": "Quiz de révision sur la logique",
+  "description": "Un quiz complet pour réviser les concepts fondamentaux du calcul propositionnel et la sémantique logique.",
+  "questions": [
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce que la sémantique du calcul propositionnel ?",
+      "options": [
+        "Étude de la syntaxe des formules",
+        "Étude de la signification des formules",
+        "Étude des propriétés sémantiques des formules",
+        "Étude des applications de la logique"
+      ],
+      "answer_index": 1,
+      "explanation": "La sémantique du calcul propositionnel est l'étude de la signification des formules, c'est-à-dire de leur interprétation et de leur évaluation."
+    },
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce qu'une tautologie ?",
+      "options": [
+        "Une formule toujours fausse",
+        "Une formule toujours vraie",
+        "Une formule parfois vraie, parfois fausse",
+        "Une formule sans signification"
+      ],
+      "answer_index": 1,
+      "explanation": "Une tautologie est une formule qui est toujours vraie, quelle que soit l'interprétation des variables."
+    },
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce qu'une contradiction ?",
+      "options": [
+        "Une formule toujours vraie",
+        "Une formule toujours fausse",
+        "Une formule parfois vraie, parfois fausse",
+        "Une formule sans signification"
+      ],
+      "answer_index": 1,
+      "explanation": "Une contradiction est une formule qui est toujours fausse, quelle que soit l'interprétation des variables."
+    },
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce qu'une table de vérité ?",
+      "options": [
+        "Un tableau qui montre les valeurs de vérité d'une formule",
+        "Un tableau qui montre les valeurs de fausseté d'une formule",
+        "Un tableau qui montre les valeurs de signification d'une formule",
+        "Un tableau qui montre les valeurs de syntaxe d'une formule"
+      ],
+      "answer_index": 0,
+      "explanation": "Une table de vérité est un tableau qui montre les valeurs de vérité d'une formule pour toutes les combinaisons possibles de valeurs de vérité des variables."
+    },
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce que l'équivalence logique ?",
+      "options": [
+        "Deux formules qui ont la même signification",
+        "Deux formules qui ont la même syntaxe",
+        "Deux formules qui ont la même valeur de vérité",
+        "Deux formules qui sont toujours vraies ou toujours fausses"
+      ],
+      "answer_index": 2,
+      "explanation": "L'équivalence logique est la relation entre deux formules qui ont la même valeur de vérité pour toutes les combinaisons possibles de valeurs de vérité des variables."
+    },
+    {
+      "type": "mcq",
+      "question": "Qu'est-ce que la valuation d'une formule ?",
+      "options": [
+        "L'attribution de valeurs de vérité aux variables",
+        "L'attribution de valeurs de fausseté aux variables",
+        "L'attribution de valeurs de signification aux variables",
+        "L'attribution de valeurs de syntaxe aux variables"
+      ],
+      "answer_index": 0,
+      "explanation": "La valuation d'une formule est l'attribution de valeurs de vérité aux variables de la formule."
+    },
+    {
+      "type": "true_false",
+      "question": "La formule (p → q) est toujours vraie lorsque p est faux.",
+      "options": [
+        "Vrai",
+        "Faux"
+      ],
+      "answer_index": 0,
+      "explanation": "La formule (p → q) est toujours vraie lorsque p est faux, car la règle de l'implication dit que si l'antécédent est faux, la conséquence est vraie."
+    },
+    {
+      "type": "true_false",
+      "question": "La formule (p ∧ q) est toujours vraie lorsque p et q sont vrais.",
+      "options": [
+        "Vrai",
+        "Faux"
+      ],
+      "answer_index": 0,
+      "explanation": "La formule (p ∧ q) est toujours vraie lorsque p et q sont vrais, car la règle de la conjonction dit que si les deux conjonctifs sont vrais, la conjonction est vraie."
+    }
+  ]
+}
